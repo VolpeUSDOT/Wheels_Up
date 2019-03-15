@@ -3,14 +3,19 @@ title: "FAA Flight Delay EDA"
 output: html_document
 ---
 
+<!-- saved from url=(0014)about:internet -->
+<!-- This needs to be manually added to the second line of the html -->
+
 This document does some initial exploration of the FAA flight delay data. Starting now with 2015 Airline Service Quality Performance ([ASQP](https://aspmhelp.faa.gov/index.php/Airline_Service_Quality_Performance_(ASQP))) data.
 
 ```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, warning=F, message=F)
+
 library(tidyverse)
 library(knitr)
 library(DT)
 library(kableExtra)
-library(plotly)
+library(plotly) # note: masks filter() from dplyr
 
 codeloc = ifelse(grep('Flynn', normalizePath('~/')),
                 "~/Documents/git/Wheels_Up",
@@ -22,23 +27,79 @@ avail_data = dir(sharedloc)
 d_15 <- read.csv(file.path(sharedloc, avail_data[grep('2015', avail_data)]))
 ```
 
+```{r format}
+# Can also use %<>% with mutate to change a variable in place
+# Need time zones to correctly format departure and arrival times. 
+# Will then need to correct arrival date for overnight flights. Will have to check for arrival time < departure time and increment the date by one day.  
 
+d_15 = d_15 %>% 
+  mutate(DAY_OF_WEEK = as.factor(DAY_OF_WEEK),
+         FLIGHT_DATE = as.Date(FLIGHT_DATE),
+         AIRLINE_ID = as.factor(AIRLINE_ID),
+         FLIGHT_NUM = as.factor(FLIGHT_NUM),
+         ACTUAL_ELAPSED_TIME = as.numeric(ACTUAL_ELAPSED_TIME),
+         AIR_TIME = as.numeric(AIR_TIME)
+         # Dep_time = as.POSIXct(paste(FLIGHT_DATE, CRS_DEP_TIME_HR, CRS_DEP_TIME_MIN), 
+         #                     format = "%Y-%m-%d %H %M", tz = ...),
+         # Arr_time = as.POSIXct(paste(FLIGHT_DATE, CRS_ARR_TIME_HR, CRS_ARR_TIME_MIN), 
+         #                     format = "%Y-%m-%d %H %M", tz = ....)
+         )
+```
+
+The data frame has `r format(nrow(d_15), big.mark=",")` rows and `r ncol(d_15)` columns.
+
+```{r overview}
+overview_df = data.frame(Variables = names(d_15),
+                         Class = sapply(d_15, class),
+                         N_unique = sapply(d_15, function(x) length(unique(x))),
+                         Min_numeric = sapply(d_15, function(x) ifelse(is.numeric(x), min(x, na.rm=T), "")),
+                         Max_numeric = sapply(d_15, function(x) ifelse(is.numeric(x), max(x, na.rm=T), "")),
+                         Top_factor = sapply(d_15, function(x) ifelse(is.factor(x), names(sort(table(x), dec=T))[1], ""))
+                         )
+
+kable(overview_df, 
+       row.names = F,
+       caption = "Overview of 2015 ASQP data. For factor variables, most frequent value is shown." ) %>% 
+    kable_styling(bootstrap_options = "striped")
+
+```
+
+Questions (for us to answer after reading the ASQP documentation):
+
+- What does a NULL values for `WHEELS_OFF` or `WHEELS_ON` indicate?
+- What is CRS time? How does it differ from 'actual elapsed time' and 'air time'?
+- What is the WAC code? Appears to be the same as the destination state.
+- What is the GRPS code?
+- Why do we only have January, August, and October 2015 data?
+- Is distance in miles?
+
+Additional data needs:
+
+- Simple table of lat / long for each airport
+- Time zone for departure and arrival airports. We will want this so that we can do our own calculations of time differences; we can generate this given lat longs of each airport if needed.
 
 ```{r explore}
-dim(d_15)
-summary(d_15)
+
 
 delay_summary <- d_15 %>%
-  group_by(CARRIER, MONTH) %>%
+  group_by(CARRIER, MONTH, FLIGHT_DATE) %>%
   summarize(n_flights = n(),
             mean_dep_delay = mean(as.numeric(DEP_DELAY_MINS)),
-            mean_arr_delay = mean(as.numeric(ARR_DELAY_MINS)))
+            mean_arr_delay = mean(as.numeric(ARR_DELAY_MINS)),
+            sd_dep_delay = sd(as.numeric(DEP_DELAY_MINS)),
+            sd_arr_delay = sd(as.numeric(ARR_DELAY_MINS)))
+
 
 ```
 
 ```{r plot1}
 p1 <- ggplot(delay_summary) +
-  geom_point(aes(MONTH, mean_arr_delay, color = CARRIER)) +
+  # geom_errorbar(aes(x = FLIGHT_DATE, 
+  #                   ymin = mean_arr_delay-sd_arr_delay,
+  #                   ymax = mean_arr_delay+sd_arr_delay,
+  #                   color = CARRIER)) +
+ geom_point(aes(x = FLIGHT_DATE, y = mean_arr_delay, color = CARRIER,
+                text = paste("N:", n_flights))) +
  # facet_wrap(~CARRIER) +
   ggtitle("Mean arrival delay in minutes by carrier for 2015")
 
