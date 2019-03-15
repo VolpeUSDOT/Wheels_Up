@@ -1,0 +1,48 @@
+---
+title: "FAA Flight Delay EDA"
+output: html_document
+---
+
+This document does some initial exploration of the FAA flight delay data. Starting now with 2015 Airline Service Quality Performance ([ASQP](https://aspmhelp.faa.gov/index.php/Airline_Service_Quality_Performance_(ASQP))) data.
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(knitr)
+library(DT)
+library(kableExtra)
+library(plotly)
+
+codeloc = ifelse(grep('Flynn', normalizePath('~/')),
+                "~/Documents/git/Wheels_Up",
+                "Erika_put_your_path_here/Wheels_Up")
+sharedloc = "//vntscex.local/DFS/Projects/PROJ-OR02A2/SDI/BTS_Flight_performance/Data"
+
+avail_data = dir(sharedloc)
+
+d_15 <- read.csv(file.path(sharedloc, avail_data[grep('2015', avail_data)]))
+```
+
+
+
+```{r explore}
+dim(d_15)
+summary(d_15)
+
+delay_summary <- d_15 %>%
+  group_by(CARRIER, MONTH) %>%
+  summarize(n_flights = n(),
+            mean_dep_delay = mean(as.numeric(DEP_DELAY_MINS)),
+            mean_arr_delay = mean(as.numeric(ARR_DELAY_MINS)))
+
+```
+
+```{r plot1}
+p1 <- ggplot(delay_summary) +
+  geom_point(aes(MONTH, mean_arr_delay, color = CARRIER)) +
+ # facet_wrap(~CARRIER) +
+  ggtitle("Mean arrival delay in minutes by carrier for 2015")
+
+ggplotly(p1)
+
+```
+
