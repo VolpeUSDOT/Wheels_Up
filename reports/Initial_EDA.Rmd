@@ -1,10 +1,18 @@
 ---
 title: "FAA Flight Delay EDA"
-output: html_document
+output: 
+  html_document:
+    self_contained: true
+    toc: true
+    toc_float:
+      collapsed: false
+      smooth_scroll: false
 ---
 
 <!-- saved from url=(0014)about:internet -->
 <!-- This needs to be manually added to the second line of the html -->
+
+# Overview 
 
 This document does some initial exploration of the FAA flight delay data. Starting now with 2015 Airline Service Quality Performance ([ASQP](https://aspmhelp.faa.gov/index.php/Airline_Service_Quality_Performance_(ASQP))) data.
 
@@ -31,7 +39,6 @@ d_15 <- read.csv(file.path(sharedloc, avail_data[grep('2015', avail_data)]))
 # Can also use %<>% with mutate to change a variable in place
 # Need time zones to correctly format departure and arrival times. 
 # Will then need to correct arrival date for overnight flights. Will have to check for arrival time < departure time and increment the date by one day.  
-
 d_15 = d_15 %>% 
   mutate(DAY_OF_WEEK = as.factor(DAY_OF_WEEK),
          FLIGHT_DATE = as.Date(FLIGHT_DATE),
@@ -45,6 +52,8 @@ d_15 = d_15 %>%
          #                     format = "%Y-%m-%d %H %M", tz = ....)
          )
 ```
+
+## Variables in 2015 data
 
 The data frame has `r format(nrow(d_15), big.mark=",")` rows and `r ncol(d_15)` columns.
 
@@ -60,9 +69,11 @@ overview_df = data.frame(Variables = names(d_15),
 kable(overview_df, 
        row.names = F,
        caption = "Overview of 2015 ASQP data. For factor variables, most frequent value is shown." ) %>% 
-    kable_styling(bootstrap_options = "striped")
+    kable_styling(bootstrap_options = c("striped", "hover"))
 
 ```
+
+# Notes
 
 Questions (for us to answer after reading the ASQP documentation):
 
@@ -77,6 +88,8 @@ Additional data needs:
 
 - Simple table of lat / long for each airport
 - Time zone for departure and arrival airports. We will want this so that we can do our own calculations of time differences; we can generate this given lat longs of each airport if needed.
+
+# Visualization
 
 ```{r explore}
 
@@ -107,3 +120,14 @@ ggplotly(p1)
 
 ```
 
+Not all carriers have data for every month; only AA has data in August, and US and F9 (Frontier) are missing October data. ([Airline codes here](https://aspmhelp.faa.gov/index.php/ASQP:_Carrier_Codes_and_Names))
+
+The number of flights per month is similar for most carriers, except AA, with a much larger count of flights in October 2015.
+
+```{r summary2}
+kable(table(d_15$CARRIER, d_15$MONTH),
+      caption = 'Count of flights by month of 2015, by carrier',
+      format.args = list(big.mark = ',')) %>%
+    kable_styling(bootstrap_options = c("striped", "hover"))
+
+```
