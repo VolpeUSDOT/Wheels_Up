@@ -32,26 +32,14 @@ sharedloc = "//vntscex.local/DFS/Projects/PROJ-OR02A2/SDI/BTS_Flight_performance
 
 avail_data = dir(sharedloc)
 
-d_15 <- read.csv(file.path(sharedloc, avail_data[grep('2015', avail_data)]))
+if(length(grep('ASQP_2015.RData', dir(sharedloc))) == 0){
+  source(file.path(codeloc, 'datacleaning', 'Data_prep.R'))
+} else {
+  load(file.path(sharedloc, 'ASQP_2015.RData'))
+}
+
 ```
 
-```{r format}
-# Can also use %<>% with mutate to change a variable in place
-# Need time zones to correctly format departure and arrival times. 
-# Will then need to correct arrival date for overnight flights. Will have to check for arrival time < departure time and increment the date by one day.  
-d_15 = d_15 %>% 
-  mutate(DAY_OF_WEEK = as.factor(DAY_OF_WEEK),
-         FLIGHT_DATE = as.Date(FLIGHT_DATE),
-         AIRLINE_ID = as.factor(AIRLINE_ID),
-         FLIGHT_NUM = as.factor(FLIGHT_NUM),
-         ACTUAL_ELAPSED_TIME = as.numeric(ACTUAL_ELAPSED_TIME),
-         AIR_TIME = as.numeric(AIR_TIME)
-         # Dep_time = as.POSIXct(paste(FLIGHT_DATE, CRS_DEP_TIME_HR, CRS_DEP_TIME_MIN), 
-         #                     format = "%Y-%m-%d %H %M", tz = ...),
-         # Arr_time = as.POSIXct(paste(FLIGHT_DATE, CRS_ARR_TIME_HR, CRS_ARR_TIME_MIN), 
-         #                     format = "%Y-%m-%d %H %M", tz = ....)
-         )
-```
 
 ## Variables in 2015 data
 
@@ -77,11 +65,10 @@ kable(overview_df,
 
 Questions (for us to answer after reading the ASQP documentation):
 
-- What does a NULL values for `WHEELS_OFF` or `WHEELS_ON` indicate?
-- What is CRS time? How does it differ from 'actual elapsed time' and 'air time'?
+- NULL values for `WHEELS_OFF` or `WHEELS_ON` indicate no value in input data. What reasons might lead to missing values?
+- CRS time is the Computerized Reservation System. Should we take CRS time as the scheduled time that a consumer would see 'at booking'?
 - What is the WAC code? Appears to be the same as the destination state.
 - What is the GRPS code?
-- Why do we only have January, August, and October 2015 data?
 - Is distance in miles?
 
 Additional data needs:
@@ -97,32 +84,32 @@ Additional data needs:
 delay_summary <- d_15 %>%
   group_by(CARRIER, MONTH, FLIGHT_DATE) %>%
   summarize(n_flights = n(),
-            mean_dep_delay = mean(as.numeric(DEP_DELAY_MINS)),
-            mean_arr_delay = mean(as.numeric(ARR_DELAY_MINS)),
-            sd_dep_delay = sd(as.numeric(DEP_DELAY_MINS)),
-            sd_arr_delay = sd(as.numeric(ARR_DELAY_MINS)))
+            mean_dep_delay = mean(as.numeric(DEP_DELAY_MINS), na.rm=T),
+            mean_arr_delay = mean(as.numeric(ARR_DELAY_MINS), na.rm=T),
+            sd_dep_delay = sd(as.numeric(DEP_DELAY_MINS), na.rm=T),
+            sd_arr_delay = sd(as.numeric(ARR_DELAY_MINS)), na.rm=T)
 
 
 ```
 
 ```{r plot1}
 p1 <- ggplot(delay_summary) +
-  # geom_errorbar(aes(x = FLIGHT_DATE, 
-  #                   ymin = mean_arr_delay-sd_arr_delay,
-  #                   ymax = mean_arr_delay+sd_arr_delay,
-  #                   color = CARRIER)) +
  geom_point(aes(x = FLIGHT_DATE, y = mean_arr_delay, color = CARRIER,
                 text = paste("N:", n_flights))) +
- # facet_wrap(~CARRIER) +
   ggtitle("Mean arrival delay in minutes by carrier for 2015")
 
 ggplotly(p1)
 
+p2 <- ggplot(delay_summary) +
+ geom_point(aes(x = FLIGHT_DATE, y = sd_arr_delay, color = CARRIER,
+                text = paste("N:", n_flights))) +
+  ggtitle("Standard deviation of arrival delay in minutes by carrier for 2015")
+
+ggplotly(p2)
+
 ```
 
-Not all carriers have data for every month; only AA has data in August, and US and F9 (Frontier) are missing October data. ([Airline codes here](https://aspmhelp.faa.gov/index.php/ASQP:_Carrier_Codes_and_Names))
-
-The number of flights per month is similar for most carriers, except AA, with a much larger count of flights in October 2015.
+Counts of flights by month, by carrier show some variation. AA in particular merged with US Airways in 2015, so the counts of flights for AA and US reflect that merger.  ([Airline codes here](https://aspmhelp.faa.gov/index.php/ASQP:_Carrier_Codes_and_Names); [AA/US merger](https://en.wikipedia.org/wiki/American_Airlines_Group))
 
 ```{r summary2}
 kable(table(d_15$CARRIER, d_15$MONTH),
