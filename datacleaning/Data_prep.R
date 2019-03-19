@@ -48,6 +48,7 @@ read_ASQP <- function(datafile){
   to_drop = c('ORIGIN_STATE_NAME_1', 'DEST_STATE_NAME_1',
               'ORIGIN_WAC', 'ORIGIN_STATE', 'ORIGIN_STATE_FIPS',
               'TAIL_NUM', 'UNIQUE_CARRIER', 'SRC_FILE', 'ID', 'FLIGHTS',
+              'QUARTER', 'DAY_OF_MONTH',
               'ORIGIN_STATE_NAME', 'DEST_STATE_NAME',
               'DEST_WAC', 'DEST_STATE', 'DEST_STATE_FIPS')
   

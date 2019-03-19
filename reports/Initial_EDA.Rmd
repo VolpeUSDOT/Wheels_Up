@@ -79,7 +79,7 @@ overview_df = data.frame(Variables = names(d_15),
 kable(overview_df, 
        row.names = F,
        caption = "Overview of 2015 ASQP data. For factor variables, most frequent value is shown." ) %>% 
-    kable_styling(bootstrap_options = c("striped", "hover"))
+    kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
 
 ```
 
@@ -99,7 +99,7 @@ overview_df = data.frame(Variables = names(d_16),
 kable(overview_df, 
        row.names = F,
        caption = "Overview of 2016 ASQP data. For factor variables, most frequent value is shown." ) %>% 
-    kable_styling(bootstrap_options = c("striped", "hover"))
+    kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
 
 ```
 
@@ -119,7 +119,7 @@ overview_df = data.frame(Variables = names(d_17),
 kable(overview_df, 
        row.names = F,
        caption = "Overview of 2017 ASQP data. For factor variables, most frequent value is shown.") %>% 
-    kable_styling(bootstrap_options = c("striped", "hover"))
+    kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
 
 ```
 
@@ -156,20 +156,13 @@ busy_airports <- d_15 %>%
 
 ```
 
-```{r plot15, fig.height=6, fig.width=7}
+```{r plot15, fig.height=5, fig.width=7}
 p1 <- ggplot(delay_summary) +
  geom_point(aes(x = FLIGHT_DATE, y = mean_arr_delay, color = CARRIER,
                 text = paste("N:", n_flights))) +
   ggtitle("Mean arrival delay in minutes by carrier for 2015")
 
 ggplotly(p1)
-
-# p2 <- ggplot(delay_summary) +
-#  geom_point(aes(x = FLIGHT_DATE, y = sd_arr_delay, color = CARRIER,
-#                 text = paste("N:", n_flights))) +
-#   ggtitle("Standard deviation of arrival delay in minutes by carrier for 2015")
-# 
-# ggplotly(p2)
 
 p2 <- ggplot(delay_summary_origin %>% filter(n_flights > 250 & !is.na(mean_arr_delay) & ORIGIN %in% busy_airports$ORIGIN)) +
   geom_histogram(aes(mean_arr_delay, fill = ORIGIN)) +
@@ -205,7 +198,7 @@ busy_airports <- d_16 %>%
 
 ```
 
-```{r plot16, fig.height=6, fig.width=7}
+```{r plot16, fig.height=5, fig.width=7}
 p1 <- ggplot(delay_summary) +
  geom_point(aes(x = FLIGHT_DATE, y = mean_arr_delay, color = CARRIER,
                 text = paste("N:", n_flights))) +
@@ -246,7 +239,7 @@ busy_airports <- d_17 %>%
 
 ```
 
-```{r plot17, fig.height=6, fig.width=7}
+```{r plot17, fig.height=5, fig.width=7}
 p1 <- ggplot(delay_summary) +
  geom_point(aes(x = FLIGHT_DATE, y = mean_arr_delay, color = CARRIER,
                 text = paste("N:", n_flights))) +
@@ -272,7 +265,7 @@ Confirming:
 
 ```{r, wheels_time}
 kable(head(d_15 %>% select(DEP_TIME_HR, DEP_TIME_MIN, TAXI_OUT, WHEELS_OFF, WHEELS_ON, TAXI_IN, ARR_TIME_HR, ARR_TIME_MIN)),
-      caption = 'Example time data for DEP, TAXI, WHEELS') %>% 
+      caption = 'Example DEP, ARR, TAXI, and WHEELS time') %>% 
     kable_styling(bootstrap_options = c("striped", "hover"))
 ```
 
@@ -289,7 +282,7 @@ kable(head(d_15 %>% select(CRS_DEP_TIME_HR, CRS_DEP_TIME_MIN, WHEELS_OFF, WHEELS
 
 # Notes
 
-Questions (for us to answer after reading the ASQP documentation):
+Questions:
 
 - NULL values for `WHEELS_OFF` or `WHEELS_ON` indicate no value in input data. What reasons might lead to missing values?
 - CRS time is the Computerized Reservation System. Should we take CRS time as the scheduled time that a consumer would see 'at booking'?
