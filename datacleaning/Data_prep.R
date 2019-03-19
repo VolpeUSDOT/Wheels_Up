@@ -7,7 +7,7 @@ library(tidyverse)
 
 # devtools::install_github("gadenbuie/regexplain")
 codeloc = ifelse(grep('Flynn', normalizePath('~/')),
-                 "~/Documents/git/Wheels_Up",
+                 "~/git/Wheels_Up",
                  "Erika_put_your_path_here/Wheels_Up")
 sharedloc = "//vntscex.local/DFS/Projects/PROJ-OR02A2/SDI/BTS_Flight_performance/Data"
 
@@ -45,8 +45,12 @@ read_ASQP <- function(datafile){
   # Will then need to correct arrival date for overnight flights. Will have to check for arrival time < departure time and increment the date by one day.  
   
   # Columns to drop
-  to_drop = c('ORIGIN_STATE_NAME_1', 'DEST_STATE_NAME_1', 'TAIL_NUM', 'UNIQUE_CARRIER', 'SRC_FILE', 'ID',
-              'ORIGIN_STATE_NAME', 'DEST_STATE_NAME')
+  to_drop = c('ORIGIN_STATE_NAME_1', 'DEST_STATE_NAME_1',
+              'ORIGIN_WAC', 'ORIGIN_STATE', 'ORIGIN_STATE_FIPS',
+              'TAIL_NUM', 'UNIQUE_CARRIER', 'SRC_FILE', 'ID', 'FLIGHTS',
+              'ORIGIN_STATE_NAME', 'DEST_STATE_NAME',
+              'DEST_WAC', 'DEST_STATE', 'DEST_STATE_FIPS')
+  
   # Drop columns and format
   data_file = data_file[!names(data_file) %in% to_drop] %>%
     mutate(DAY_OF_WEEK = as.factor(DAY_OF_WEEK),
@@ -58,14 +62,8 @@ read_ASQP <- function(datafile){
            AIR_TIME = as.numeric(AIR_TIME),
            ORIGIN = as.factor(ORIGIN),
            ORIGIN_CITY_NAME = as.factor(ORIGIN_CITY_NAME),
-           ORIGIN_STATE = as.factor(ORIGIN_STATE),         
-           ORIGIN_STATE_FIPS = as.factor(ORIGIN_STATE_FIPS),         
-           ORIGIN_WAC = as.factor(ORIGIN_WAC),         
            DEST = as.factor(DEST),
            DEST_CITY_NAME = as.factor(DEST_CITY_NAME),
-           DEST_STATE = as.factor(DEST_STATE),         
-           DEST_STATE_FIPS = as.factor(DEST_STATE_FIPS),         
-           DEST_WAC = as.factor(DEST_WAC),          
            CANCELLATION_CODE = as.factor(CANCELLATION_CODE)
            # Dep_time = as.POSIXct(paste(FLIGHT_DATE, CRS_DEP_TIME_HR, CRS_DEP_TIME_MIN), 
            #                     format = "%Y-%m-%d %H %M", tz = ...),
@@ -82,3 +80,49 @@ d_17 <- read_ASQP(file.path(sharedloc, avail_data[grep('2017', avail_data)]))
 save(list = 'd_15', file = file.path(sharedloc, 'ASQP_2015.RData'))
 save(list = 'd_16', file = file.path(sharedloc, 'ASQP_2016.RData'))
 save(list = 'd_17', file = file.path(sharedloc, 'ASQP_2017.RData'))
+
+# Scan across years ----
+# Extract carriers and airports, make tables showing which years they appear in and how frequently
+
+carr_yr = d_15 %>%
+  group_by(CARRIER) %>%
+  summarize(count_15 = n())
+
+carr_yr = full_join(carr_yr, d_16 %>%
+                      group_by(CARRIER) %>%
+                      summarize(count_16 = n())
+                    )
+
+carr_yr = full_join(carr_yr, d_17 %>%
+                      group_by(CARRIER) %>%
+                      summarize(count_17 = n())
+                    )
+
+od_yr = d_15 %>%
+  group_by(ORIGIN, DEST) %>%
+  summarize(count_15 = n())
+
+od_yr = full_join(od_yr, d_16 %>%
+                    group_by(ORIGIN, DEST) %>%
+                    summarize(count_16 = n())
+                  )
+
+od_yr = full_join(od_yr, d_17 %>%
+                      group_by(ORIGIN, DEST) %>%
+                      summarize(count_17 = n())
+                  )
+
+any_od_na = od_yr %>% filter(is.na(count_15) | is.na(count_16) | is.na(count_17))
+any_od_na %>% filter(is.na(count_15))
+any_od_na %>% filter(is.na(count_16))
+any_od_na %>% filter(is.na(count_17))
+
+all(unique(od_yr$DEST) %in% unique(od_yr$ORIGIN)) # not all airports present in both origin and destination
+dest_not_in_origin = unique(od_yr$DEST)[!unique(od_yr$DEST) %in% unique(od_yr$ORIGIN)]  
+origin_not_in_dest = unique(od_yr$ORIGIN)[!unique(od_yr$ORIGIN) %in% unique(od_yr$DEST)]
+
+od_yr %>% filter(DEST %in% dest_not_in_origin)
+od_yr %>% filter(ORIGIN %in% origin_not_in_dest)
+
+save(list = c('carr_yr', 'od_yr'),
+     file = file.path(sharedloc, 'Cross-year_Summary.RData'))

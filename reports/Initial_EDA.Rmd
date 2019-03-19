@@ -4,8 +4,9 @@ output:
   html_document:
     self_contained: true
     toc: true
+    toc_depth: 1
     toc_float:
-      collapsed: false
+      collapsed: true
       smooth_scroll: false
 ---
 
@@ -14,7 +15,7 @@ output:
 
 # Overview 
 
-This document does some initial exploration of the FAA flight delay data. Starting now with 2015 Airline Service Quality Performance ([ASQP](https://aspmhelp.faa.gov/index.php/Airline_Service_Quality_Performance_(ASQP))) data.
+This document provides an overview of the FAA flight delay data. This document currently reviews the 2015, 2016, and 2017 Airline Service Quality Performance ([ASQP](https://aspmhelp.faa.gov/index.php/Airline_Service_Quality_Performance_(ASQP))) data; 2018 data is in process.
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = F, warning=F, message=F)
@@ -26,26 +27,47 @@ library(kableExtra)
 library(plotly) # note: masks filter() from dplyr
 
 codeloc = ifelse(grep('Flynn', normalizePath('~/')),
-                "~/Documents/git/Wheels_Up",
+                "~/git/Wheels_Up",
                 "Erika_put_your_path_here/Wheels_Up")
 sharedloc = "//vntscex.local/DFS/Projects/PROJ-OR02A2/SDI/BTS_Flight_performance/Data"
 
 avail_data = dir(sharedloc)
+avail_data = avail_data[grep('^ASQP.\\d{4}.RData$', avail_data)] # Match with regular expresion to only prepared .RData files
 
-if(length(grep('ASQP_2015.RData', dir(sharedloc))) == 0){
-  source(file.path(codeloc, 'datacleaning', 'Data_prep.R'))
+if(length(avail_data) == 0) {
+    source(file.path(codeloc, 'datacleaning', 'Data_prep.R'))
 } else {
-  load(file.path(sharedloc, 'ASQP_2015.RData'))
-}
+    for(x in avail_data){
+      load(file.path(sharedloc, x))
+    }
+  load(file.path(sharedloc, 'Cross-year_Summary.RData'))
+  }
+```
+
+The following table summarizes the counts of flights by carrier across the three currently available years.
+
+```{r carr_yr_table}
+carr_yr_table = rbind(carr_yr, c('Total', colSums(carr_yr[2:ncol(carr_yr)], na.rm = T)))
+class(carr_yr_table) = 'data.frame'
+colnames(carr_yr_table) = c('Carrier', '2015', '2016', '2017')
+for(i in 2:ncol(carr_yr_table)){ carr_yr_table[,i] = as.numeric(carr_yr_table[,i]) }
+
+kable(carr_yr_table,
+      format.args = list(big.mark = ','),
+      caption = "Counts of flights by year and carrier in ASQP data." ) %>% 
+  kable_styling(bootstrap_options = c("striped", "hover")) %>%
+  row_spec(nrow(carr_yr_table), bold = T,hline_after = T)
 
 ```
 
+## Variables {.tabset .tabset-pills}
 
-## Variables in 2015 data
+The following tables summarize the variables being retained from the complete ASQP data. These tables allow for a quality assurance check on completeness and correctness of the data for each year.
 
+### 2015
 The data frame has `r format(nrow(d_15), big.mark=",")` rows and `r ncol(d_15)` columns.
 
-```{r overview}
+```{r overview15}
 overview_df = data.frame(Variables = names(d_15),
                          Class = sapply(d_15, class),
                          N_unique = sapply(d_15, function(x) length(unique(x))),
@@ -61,38 +83,80 @@ kable(overview_df,
 
 ```
 
-# Notes
 
-Questions (for us to answer after reading the ASQP documentation):
+### 2016
+The data frame has `r format(nrow(d_16), big.mark=",")` rows and `r ncol(d_16)` columns.
 
-- NULL values for `WHEELS_OFF` or `WHEELS_ON` indicate no value in input data. What reasons might lead to missing values?
-- CRS time is the Computerized Reservation System. Should we take CRS time as the scheduled time that a consumer would see 'at booking'?
-- What is the WAC code? Appears to be the same as the destination state.
-- What is the GRPS code?
-- Is distance in miles?
+```{r overview16}
+overview_df = data.frame(Variables = names(d_16),
+                         Class = sapply(d_16, class),
+                         N_unique = sapply(d_16, function(x) length(unique(x))),
+                         Min_numeric = sapply(d_16, function(x) ifelse(is.numeric(x), min(x, na.rm=T), "")),
+                         Max_numeric = sapply(d_16, function(x) ifelse(is.numeric(x), max(x, na.rm=T), "")),
+                         Top_factor = sapply(d_16, function(x) ifelse(is.factor(x), names(sort(table(x), dec=T))[1], ""))
+                         )
 
-Additional data needs:
+kable(overview_df, 
+       row.names = F,
+       caption = "Overview of 2016 ASQP data. For factor variables, most frequent value is shown." ) %>% 
+    kable_styling(bootstrap_options = c("striped", "hover"))
 
-- Simple table of lat / long for each airport
-- Time zone for departure and arrival airports. We will want this so that we can do our own calculations of time differences; we can generate this given lat longs of each airport if needed.
-
-# Visualization
-
-```{r explore}
+```
 
 
+### 2017
+The data frame has `r format(nrow(d_17), big.mark=",")` rows and `r ncol(d_17)` columns.
+
+```{r overview17}
+overview_df = data.frame(Variables = names(d_17),
+                         Class = sapply(d_17, class),
+                         N_unique = sapply(d_17, function(x) length(unique(x))),
+                         Min_numeric = sapply(d_17, function(x) ifelse(is.numeric(x), min(x, na.rm=T), "")),
+                         Max_numeric = sapply(d_17, function(x) ifelse(is.numeric(x), max(x, na.rm=T), "")),
+                         Top_factor = sapply(d_17, function(x) ifelse(is.factor(x), names(sort(table(x), dec=T))[1], ""))
+                         )
+
+kable(overview_df, 
+       row.names = F,
+       caption = "Overview of 2017 ASQP data. For factor variables, most frequent value is shown.") %>% 
+    kable_styling(bootstrap_options = c("striped", "hover"))
+
+```
+
+
+# Visualization 
+
+For each year, the following visuals provide a check in the delay data provided in ASQP. For this project, we will calculate delay based on wheels-off to wheels-on compared to the scheduled departure and arrival.
+
+## Plotting delays by day and airline {.tabset .tabset-pills}
+
+### 2015
+
+```{r explore15}
 delay_summary <- d_15 %>%
   group_by(CARRIER, MONTH, FLIGHT_DATE) %>%
   summarize(n_flights = n(),
             mean_dep_delay = mean(as.numeric(DEP_DELAY_MINS), na.rm=T),
             mean_arr_delay = mean(as.numeric(ARR_DELAY_MINS), na.rm=T),
             sd_dep_delay = sd(as.numeric(DEP_DELAY_MINS), na.rm=T),
-            sd_arr_delay = sd(as.numeric(ARR_DELAY_MINS)), na.rm=T)
+            sd_arr_delay = sd(as.numeric(ARR_DELAY_MINS), na.rm=T))
 
+delay_summary_origin <- d_15 %>%
+  group_by(ORIGIN, MONTH, FLIGHT_DATE) %>%
+  summarize(n_flights = n(),
+            mean_dep_delay = mean(as.numeric(DEP_DELAY_MINS), na.rm=T),
+            mean_arr_delay = mean(as.numeric(ARR_DELAY_MINS), na.rm=T),
+            sd_dep_delay = sd(as.numeric(DEP_DELAY_MINS), na.rm=T),
+            sd_arr_delay = sd(as.numeric(ARR_DELAY_MINS), na.rm=T))
+
+busy_airports <- d_15 %>%
+  group_by(ORIGIN) %>%
+  summarize(n_flights = n()) %>%
+  filter(n_flights >= sort(n_flights, decreasing = T)[6])
 
 ```
 
-```{r plot1}
+```{r plot15, fig.height=6, fig.width=7}
 p1 <- ggplot(delay_summary) +
  geom_point(aes(x = FLIGHT_DATE, y = mean_arr_delay, color = CARRIER,
                 text = paste("N:", n_flights))) +
@@ -100,21 +164,161 @@ p1 <- ggplot(delay_summary) +
 
 ggplotly(p1)
 
-p2 <- ggplot(delay_summary) +
- geom_point(aes(x = FLIGHT_DATE, y = sd_arr_delay, color = CARRIER,
-                text = paste("N:", n_flights))) +
-  ggtitle("Standard deviation of arrival delay in minutes by carrier for 2015")
+# p2 <- ggplot(delay_summary) +
+#  geom_point(aes(x = FLIGHT_DATE, y = sd_arr_delay, color = CARRIER,
+#                 text = paste("N:", n_flights))) +
+#   ggtitle("Standard deviation of arrival delay in minutes by carrier for 2015")
+# 
+# ggplotly(p2)
 
+p2 <- ggplot(delay_summary_origin %>% filter(n_flights > 250 & !is.na(mean_arr_delay) & ORIGIN %in% busy_airports$ORIGIN)) +
+  geom_histogram(aes(mean_arr_delay, fill = ORIGIN)) +
+  facet_wrap(~ORIGIN, ncol = 3) +
+  ggtitle('Distribution of mean daily arrival delay', subtitle = 'For days with >250 flights in the top 6 busiest airports')
 ggplotly(p2)
+```
+
+
+### 2016
+
+```{r explore16}
+delay_summary <- d_16 %>%
+  group_by(CARRIER, MONTH, FLIGHT_DATE) %>%
+  summarize(n_flights = n(),
+            mean_dep_delay = mean(as.numeric(DEP_DELAY_MINS), na.rm=T),
+            mean_arr_delay = mean(as.numeric(ARR_DELAY_MINS), na.rm=T),
+            sd_dep_delay = sd(as.numeric(DEP_DELAY_MINS), na.rm=T),
+            sd_arr_delay = sd(as.numeric(ARR_DELAY_MINS), na.rm=T))
+
+delay_summary_origin <- d_16 %>%
+  group_by(ORIGIN, MONTH, FLIGHT_DATE) %>%
+  summarize(n_flights = n(),
+            mean_dep_delay = mean(as.numeric(DEP_DELAY_MINS), na.rm=T),
+            mean_arr_delay = mean(as.numeric(ARR_DELAY_MINS), na.rm=T),
+            sd_dep_delay = sd(as.numeric(DEP_DELAY_MINS), na.rm=T),
+            sd_arr_delay = sd(as.numeric(ARR_DELAY_MINS), na.rm=T))
+
+busy_airports <- d_16 %>%
+  group_by(ORIGIN) %>%
+  summarize(n_flights = n()) %>%
+  filter(n_flights >= sort(n_flights, decreasing = T)[6])
 
 ```
 
-Counts of flights by month, by carrier show some variation. AA in particular merged with US Airways in 2015, so the counts of flights for AA and US reflect that merger.  ([Airline codes here](https://aspmhelp.faa.gov/index.php/ASQP:_Carrier_Codes_and_Names); [AA/US merger](https://en.wikipedia.org/wiki/American_Airlines_Group))
+```{r plot16, fig.height=6, fig.width=7}
+p1 <- ggplot(delay_summary) +
+ geom_point(aes(x = FLIGHT_DATE, y = mean_arr_delay, color = CARRIER,
+                text = paste("N:", n_flights))) +
+  ggtitle("Mean arrival delay in minutes by carrier for 2016")
+
+ggplotly(p1)
+
+p2 <- ggplot(delay_summary_origin %>% filter(n_flights > 250 & !is.na(mean_arr_delay) & ORIGIN %in% busy_airports$ORIGIN)) +
+  geom_histogram(aes(mean_arr_delay, fill = ORIGIN)) +
+  facet_wrap(~ORIGIN, ncol = 3) +
+  ggtitle('Distribution of mean daily arrival delay', subtitle = 'For days with >250 flights in the top 6 busiest airports')
+ggplotly(p2)
+```
+
+### 2017
+
+```{r explore17}
+delay_summary <- d_17 %>%
+  group_by(CARRIER, MONTH, FLIGHT_DATE) %>%
+  summarize(n_flights = n(),
+            mean_dep_delay = mean(as.numeric(DEP_DELAY_MINS), na.rm=T),
+            mean_arr_delay = mean(as.numeric(ARR_DELAY_MINS), na.rm=T),
+            sd_dep_delay = sd(as.numeric(DEP_DELAY_MINS), na.rm=T),
+            sd_arr_delay = sd(as.numeric(ARR_DELAY_MINS), na.rm=T))
+
+delay_summary_origin <- d_17 %>%
+  group_by(ORIGIN, MONTH, FLIGHT_DATE) %>%
+  summarize(n_flights = n(),
+            mean_dep_delay = mean(as.numeric(DEP_DELAY_MINS), na.rm=T),
+            mean_arr_delay = mean(as.numeric(ARR_DELAY_MINS), na.rm=T),
+            sd_dep_delay = sd(as.numeric(DEP_DELAY_MINS), na.rm=T),
+            sd_arr_delay = sd(as.numeric(ARR_DELAY_MINS), na.rm=T))
+
+busy_airports <- d_17 %>%
+  group_by(ORIGIN) %>%
+  summarize(n_flights = n()) %>%
+  filter(n_flights >= sort(n_flights, decreasing = T)[6])
+
+```
+
+```{r plot17, fig.height=6, fig.width=7}
+p1 <- ggplot(delay_summary) +
+ geom_point(aes(x = FLIGHT_DATE, y = mean_arr_delay, color = CARRIER,
+                text = paste("N:", n_flights))) +
+  ggtitle("Mean arrival delay in minutes by carrier for 2017")
+
+ggplotly(p1)
+
+p2 <- ggplot(delay_summary_origin %>% filter(n_flights > 250 & !is.na(mean_arr_delay) & ORIGIN %in% busy_airports$ORIGIN)) +
+  geom_histogram(aes(mean_arr_delay, fill = ORIGIN)) +
+  facet_wrap(~ORIGIN, ncol = 3) +
+  ggtitle('Distribution of mean daily arrival delay', subtitle = 'For days with >250 flights in the top 6 busiest airports')
+ggplotly(p2)
+```
+
+# Wheels off/on time compared
+
+Confirming: 
+
+```
+  WHEELS_OFF = DEP_TIME + TAXI_OUT
+  WHEELS_ON  = ARR_TIME - TAXI_IN
+```
+
+```{r, wheels_time}
+kable(head(d_15 %>% select(DEP_TIME_HR, DEP_TIME_MIN, TAXI_OUT, WHEELS_OFF, WHEELS_ON, TAXI_IN, ARR_TIME_HR, ARR_TIME_MIN)),
+      caption = 'Example time data for DEP, TAXI, WHEELS') %>% 
+    kable_styling(bootstrap_options = c("striped", "hover"))
+```
+
+Scheduled time:
+
+- CRS = Computerized Reservation System
+
+```{r crs_time}
+kable(head(d_15 %>% select(CRS_DEP_TIME_HR, CRS_DEP_TIME_MIN, WHEELS_OFF, WHEELS_ON, CRS_ARR_TIME_HR, CRS_ARR_TIME_MIN)),
+      caption = 'Example WHEELS and CRS time') %>%
+      kable_styling(bootstrap_options = c("striped", "hover"))
+
+```
+
+# Notes
+
+Questions (for us to answer after reading the ASQP documentation):
+
+- NULL values for `WHEELS_OFF` or `WHEELS_ON` indicate no value in input data. What reasons might lead to missing values?
+- CRS time is the Computerized Reservation System. Should we take CRS time as the scheduled time that a consumer would see 'at booking'?
+
+Data processing notes:
+
+- WAC (World Area Code) is synonymous with state, we have omitted it to save space.
+- Have kept ORIGIN_CITY_NAME because assume weather events at one city will be shared across airports
+
+Additional data:
+
+- Table of lat / long for each airport. Obtained from BTS [here](https://www.transtats.bts.gov/tables.asp?Table_ID=315&SYS_Table_Name=T_WAC_COUNTRY_STATE), will update data after integrating.
+- Time zone for departure and arrival airports. We will want this so that we can do our own calculations of time differences; we can generate this given lat longs of each airport if needed. Now that we have lat long, can overlay with timezone shapefile.
+
+
+## Merger of AA and US
+
+Counts of flights by month for 2015, by carrier, show the effect of the merger between AA and US Airways in 2015 ([AA/US merger](https://en.wikipedia.org/wiki/American_Airlines_Group); [Airline codes here](https://aspmhelp.faa.gov/index.php/ASQP:_Carrier_Codes_and_Names)). Other years do not show any similar breaks in count of flights by month and carrier.
 
 ```{r summary2}
 kable(table(d_15$CARRIER, d_15$MONTH),
       caption = 'Count of flights by month of 2015, by carrier',
       format.args = list(big.mark = ',')) %>%
     kable_styling(bootstrap_options = c("striped", "hover"))
+
+
+# kable(table(d_17$CARRIER, d_17$MONTH),
+#       caption = 'Count of flights by month of 2017, by carrier',
+#       format.args = list(big.mark = ',')) %>%
+#     kable_styling(bootstrap_options = c("striped", "hover"))
 
 ```
