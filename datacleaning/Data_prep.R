@@ -77,10 +77,12 @@ read_ASQP <- function(datafile){
 d_15 <- read_ASQP(file.path(sharedloc, avail_data[grep('2015', avail_data)]))
 d_16 <- read_ASQP(file.path(sharedloc, avail_data[grep('2016', avail_data)]))
 d_17 <- read_ASQP(file.path(sharedloc, avail_data[grep('2017', avail_data)]))
+d_18 <- read_ASQP(file.path(sharedloc, avail_data[grep('2018', avail_data)]))
 
 save(list = 'd_15', file = file.path(sharedloc, 'ASQP_2015.RData'))
 save(list = 'd_16', file = file.path(sharedloc, 'ASQP_2016.RData'))
 save(list = 'd_17', file = file.path(sharedloc, 'ASQP_2017.RData'))
+save(list = 'd_18', file = file.path(sharedloc, 'ASQP_2017.RData'))
 
 # Scan across years ----
 # Extract carriers and airports, make tables showing which years they appear in and how frequently
@@ -99,6 +101,12 @@ carr_yr = full_join(carr_yr, d_17 %>%
                       summarize(count_17 = n())
                     )
 
+carr_yr = full_join(carr_yr, d_18 %>%
+                      group_by(CARRIER) %>%
+                      summarize(count_18 = n())
+)
+
+
 od_yr = d_15 %>%
   group_by(ORIGIN, DEST) %>%
   summarize(count_15 = n())
@@ -112,6 +120,11 @@ od_yr = full_join(od_yr, d_17 %>%
                       group_by(ORIGIN, DEST) %>%
                       summarize(count_17 = n())
                   )
+
+od_yr = full_join(od_yr, d_18 %>%
+                    group_by(ORIGIN, DEST) %>%
+                    summarize(count_18 = n())
+)
 
 any_od_na = od_yr %>% filter(is.na(count_15) | is.na(count_16) | is.na(count_17))
 any_od_na %>% filter(is.na(count_15))

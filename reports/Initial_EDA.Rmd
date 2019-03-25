@@ -1,5 +1,5 @@
 ---
-title: "FAA Flight Delay EDA"
+title: "FAA Flight Time EDA"
 output: 
   html_document:
     self_contained: true
@@ -15,7 +15,7 @@ output:
 
 # Overview 
 
-This document provides an overview of the FAA flight delay data. This document currently reviews the 2015, 2016, and 2017 Airline Service Quality Performance ([ASQP](https://aspmhelp.faa.gov/index.php/Airline_Service_Quality_Performance_(ASQP))) data; 2018 data is in process.
+This document provides an overview of the FAA flight time and delay data. This document currently reviews the 2015-2018 Airline Service Quality Performance ([ASQP](https://aspmhelp.faa.gov/index.php/Airline_Service_Quality_Performance_(ASQP))) data.
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = F, warning=F, message=F)
@@ -44,12 +44,12 @@ if(length(avail_data) == 0) {
   }
 ```
 
-The following table summarizes the counts of flights by carrier across the three currently available years.
+The following table summarizes the counts of flights by carrier across the four available years.
 
 ```{r carr_yr_table}
 carr_yr_table = rbind(carr_yr, c('Total', colSums(carr_yr[2:ncol(carr_yr)], na.rm = T)))
 class(carr_yr_table) = 'data.frame'
-colnames(carr_yr_table) = c('Carrier', '2015', '2016', '2017')
+colnames(carr_yr_table) = c('Carrier', '2015', '2016', '2017', '2018')
 for(i in 2:ncol(carr_yr_table)){ carr_yr_table[,i] = as.numeric(carr_yr_table[,i]) }
 
 kable(carr_yr_table,
@@ -119,6 +119,25 @@ overview_df = data.frame(Variables = names(d_17),
 kable(overview_df, 
        row.names = F,
        caption = "Overview of 2017 ASQP data. For factor variables, most frequent value is shown.") %>% 
+    kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
+
+```
+
+### 2018
+The data frame has `r format(nrow(d_18), big.mark=",")` rows and `r ncol(d_18)` columns.
+
+```{r overview18}
+overview_df = data.frame(Variables = names(d_18),
+                         Class = sapply(d_18, class),
+                         N_unique = sapply(d_18, function(x) length(unique(x))),
+                         Min_numeric = sapply(d_18, function(x) ifelse(is.numeric(x), min(x, na.rm=T), "")),
+                         Max_numeric = sapply(d_18, function(x) ifelse(is.numeric(x), max(x, na.rm=T), "")),
+                         Top_factor = sapply(d_18, function(x) ifelse(is.factor(x) & !all(is.na(x)), names(sort(table(x), dec=T))[1], ""))
+                         )
+
+kable(overview_df, 
+       row.names = F,
+       caption = "Overview of 2018 ASQP data. For factor variables, most frequent value is shown." ) %>% 
     kable_styling(bootstrap_options = c("striped", "hover", "condensed"))
 
 ```
@@ -244,6 +263,48 @@ p1 <- ggplot(delay_summary) +
  geom_point(aes(x = FLIGHT_DATE, y = mean_arr_delay, color = CARRIER,
                 text = paste("N:", n_flights))) +
   ggtitle("Mean arrival delay in minutes by carrier for 2017")
+
+ggplotly(p1)
+
+p2 <- ggplot(delay_summary_origin %>% filter(n_flights > 250 & !is.na(mean_arr_delay) & ORIGIN %in% busy_airports$ORIGIN)) +
+  geom_histogram(aes(mean_arr_delay, fill = ORIGIN)) +
+  facet_wrap(~ORIGIN, ncol = 3) +
+  ggtitle('Distribution of mean daily arrival delay', subtitle = 'For days with >250 flights in the top 6 busiest airports')
+ggplotly(p2)
+```
+
+
+### 2018
+
+```{r explore18}
+delay_summary <- d_18 %>%
+  group_by(CARRIER, MONTH, FLIGHT_DATE) %>%
+  summarize(n_flights = n(),
+            mean_dep_delay = mean(as.numeric(DEP_DELAY_MINS), na.rm=T),
+            mean_arr_delay = mean(as.numeric(ARR_DELAY_MINS), na.rm=T),
+            sd_dep_delay = sd(as.numeric(DEP_DELAY_MINS), na.rm=T),
+            sd_arr_delay = sd(as.numeric(ARR_DELAY_MINS), na.rm=T))
+
+delay_summary_origin <- d_18 %>%
+  group_by(ORIGIN, MONTH, FLIGHT_DATE) %>%
+  summarize(n_flights = n(),
+            mean_dep_delay = mean(as.numeric(DEP_DELAY_MINS), na.rm=T),
+            mean_arr_delay = mean(as.numeric(ARR_DELAY_MINS), na.rm=T),
+            sd_dep_delay = sd(as.numeric(DEP_DELAY_MINS), na.rm=T),
+            sd_arr_delay = sd(as.numeric(ARR_DELAY_MINS), na.rm=T))
+
+busy_airports <- d_18 %>%
+  group_by(ORIGIN) %>%
+  summarize(n_flights = n()) %>%
+  filter(n_flights >= sort(n_flights, decreasing = T)[6])
+
+```
+
+```{r plot18, fig.height=5, fig.width=7}
+p1 <- ggplot(delay_summary) +
+ geom_point(aes(x = FLIGHT_DATE, y = mean_arr_delay, color = CARRIER,
+                text = paste("N:", n_flights))) +
+  ggtitle("Mean arrival delay in minutes by carrier for 2018")
 
 ggplotly(p1)
 
