@@ -82,7 +82,7 @@ d_18 <- read_ASQP(file.path(sharedloc, avail_data[grep('2018', avail_data)]))
 save(list = 'd_15', file = file.path(sharedloc, 'ASQP_2015.RData'))
 save(list = 'd_16', file = file.path(sharedloc, 'ASQP_2016.RData'))
 save(list = 'd_17', file = file.path(sharedloc, 'ASQP_2017.RData'))
-save(list = 'd_18', file = file.path(sharedloc, 'ASQP_2017.RData'))
+save(list = 'd_18', file = file.path(sharedloc, 'ASQP_2018.RData'))
 
 # Scan across years ----
 # Extract carriers and airports, make tables showing which years they appear in and how frequently
