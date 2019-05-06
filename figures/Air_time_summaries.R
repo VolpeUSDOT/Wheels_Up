@@ -6,7 +6,7 @@ library(gridExtra) # for grid.arrange of multiple ggplots
 
 codeloc = ifelse(grep('Flynn', normalizePath('~/')),
                  "~/git/Wheels_Up",
-                 "Erika_put_your_path_here/Wheels_Up")
+                 "~/GitHub/Wheels_Up/figures")
 sharedloc = "//vntscex.local/DFS/Projects/PROJ-OR02A2/SDI/BTS_Flight_performance/Data"
 figloc = "//vntscex.local/DFS/Projects/PROJ-OR02A2/SDI/BTS_Flight_performance/Figures"
 
