@@ -1,10 +1,18 @@
 # Small tests of regression model structures
 
 # Setup ----
+codeloc = ifelse(grep('Flynn', normalizePath('~/')),
+                 "~/git/Wheels_Up",
+                 "Erika_put_your_path_here/Wheels_Up")
+
+setwd(codeloc)
+source(file.path(codeloc, 'utility', 'get_packages.R'))
+
 library(tidyverse) # if this fails, run install.packages('tidyverse')
 library(lme4) # Mixed effect multilevel models
 library(brms) # for Bayesian multilevel models using Stan
 library(sjPlot) # for some nice model output tables
+
 
 sharedloc = "//vntscex.local/DFS/Projects/PROJ-OR02A2/SDI/BTS_Flight_performance/Data"
 
