@@ -203,16 +203,14 @@ d_18 %>%
 #  425    348.    302
 
 # Look at flight cause (CARRIER, WEATHER, NAS, SECURITY, LATE_AIRCRAFT)
-# Doesn't run (vector size allocation error)
-# Try with AWS or another approach?
+# Doesn't run (vector size allocation error) -- works for Dan on laptop; in total 12 of 16 Gb RAM occupied after
+# format(object.size(d_18), 'Gb')
 
-d_18$DELAY_CAUSE <- rep(NA,nrow(d_18))
+d_18$DELAY_CAUSE <- rep(NA, nrow(d_18))
 
-d_18 %>%
-  select(CARRIER_DELAY,WEATHER_DELAY,NAS_DELAY,
-         SECURITY_DELAY,LATE_AIRCRAFT_DELAY) %>%
+d_18 <- d_18 %>%
   mutate(
-    DELAY_CAUSE =   case_when(
+    DELAY_CAUSE = case_when(
       CARRIER_DELAY > 0 ~ "CARRIER",
       WEATHER_DELAY > 0 ~ "WEATHER",
       NAS_DELAY > 0 ~ "NAS",
@@ -220,3 +218,8 @@ d_18 %>%
       LATE_AIRCRAFT_DELAY > 0 ~ "LATE_AIRCRAFT"
     )
   )
+
+# Saving again with updated variable
+save(list = 'd_18', file = file.path(sharedloc, 'ASQP_2018.RData'))
+
+
