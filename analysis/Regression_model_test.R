@@ -40,8 +40,24 @@ p2 + stat_function(fun = dnorm, args = list(mean = mean(d_18$lAIR_TIME),
 # Simplest model. Take a small subset at first
 d_samp = d_18 %>% sample_n(size = nrow(d_18)/100)
 
-m1 <- lm(lAIR_TIME ~ CARRIER + MONTH + DAY_OF_WEEK + ORIGIN + DEST,
+system.time(
+  m1 <- lm(lAIR_TIME ~ CARRIER + MONTH + DAY_OF_WEEK + ORIGIN + DEST,
          data = d_samp)
+  )
+
+# Attempt with full data set on server
+# system('systeminfo')
+# totalMemory <- system('wmic computersystem get TotalPhysicalMemory /Value', intern=T)
+# availMemory <- system('wmic OS get FreePhysicalMemory /Value', intern=T)
+
+system.time(
+  m1 <- lm(lAIR_TIME ~ CARRIER + MONTH + DAY_OF_WEEK + ORIGIN + DEST,
+           data = d_18)
+)
+
+# Uses 40 GB of memory and still fails. Stan should do better.
+# Error: cannot allocate vector of size 39.0 Gb
+# Timing stopped at: 54.85 12.4 68.51
 
 op = par(no.readonly = T)
 
