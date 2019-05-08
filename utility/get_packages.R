@@ -29,7 +29,45 @@ for(i in loadpacks){if(length(grep(i, (.packages(all.available=T))))==0) install
 TEST_STAN = F
 
 if(TEST_STAN){
-	bprior1 <- prior(student_t(5,0,10), class = b) + 
+	library(brms)
+  # Make sure Rtools is in the PATH
+  
+  pth <-  Sys.getenv('PATH')
+  
+  if(!grepl('RBuildTools', pth)){
+    Sys.setenv(PATH =  paste0("C:\\RBuildTools\\3.5\\bin;", pth))
+  }
+  system('where make')
+  system('where sh')
+  system('where g++')
+  Sys.which('g++')
+  pkgbuild::find_rtools()
+  pkgbuild::rtools_path() 
+  
+  
+  system('g++ -v')
+  
+  
+  # https://github.com/stan-dev/rstan/wiki/Installing-RStan-from-source-on-Windows
+
+  # dotR <- file.path(Sys.getenv("HOME"), ".R")
+  # if (!file.exists(dotR)) dir.create(dotR)
+  # M <- file.path(dotR, "Makevars.win")
+  # if (!file.exists(M)) file.create(M)
+  # cat("\nCXX14FLAGS=-O3 -march=native",
+  #     "CXX14 = g++ -m$(WIN) -std=c++1y",
+  #     "CXX11FLAGS=-O3 -march=native",
+  #     file = M, sep = "\n", append = TRUE)
+  # remove.packages("rstan")
+  # if (file.exists(".RData")) file.remove(".RData")
+  # Sys.setenv(MAKEFLAGS = "-j4") # four cores used
+  
+  
+  install.packages("rstan", type = "source")
+  # WARNING: Rtools is required to build R packages but no version of Rtools compatible with the currently running version of R was found. Note that the following incompatible version(s) of Rtools were found:
+  # - Rtools 3.4 (installed at c:\Rtools)
+
+    bprior1 <- prior(student_t(5,0,10), class = b) + 
 		prior(cauchy(0,2), class = sd)
 	fit1 <- brm(count ~ zAge + zBase * Trt + (1|patient),
 		data = epilepsy, family = poisson(), prior = bprior1)
