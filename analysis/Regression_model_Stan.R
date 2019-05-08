@@ -53,6 +53,8 @@ system.time(
             data = d_samp, chains = 2, cores = 2)
 )
 
+save(list = c('m1', 'm2', 'm3'),
+     file = file.path(sharedloc, paste0('Models_', Sys.Date(), '.RData')))
 # Options to probably include: make sure save_ranef = T
 # inits: inits	
 #   inits can be a list of lists containing the initial values, 
