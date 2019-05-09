@@ -1,9 +1,9 @@
 # Stan regression model structures
 
 # Setup ----
-codeloc = ifelse(grep('Flynn', normalizePath('~/')),
+codeloc = ifelse(grepl('Flynn', normalizePath('~/')),
                  "~/git/Wheels_Up",
-                 "Erika_put_your_path_here/Wheels_Up")
+                 "~/GitHub/Wheels_Up")
 
 setwd(codeloc)
 source(file.path(codeloc, 'utility', 'get_packages.R'))

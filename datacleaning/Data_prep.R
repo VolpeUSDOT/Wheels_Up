@@ -6,7 +6,7 @@
 library(tidyverse)
 
 # devtools::install_github("gadenbuie/regexplain")
-codeloc = ifelse(grep('Flynn', normalizePath('~/')),
+codeloc = ifelse(grepl('Flynn', normalizePath('~/')),
                  "~/git/Wheels_Up",
                  "Erika_put_your_path_here/Wheels_Up")
 sharedloc = "//vntscex.local/DFS/Projects/PROJ-OR02A2/SDI/BTS_Flight_performance/Data"
