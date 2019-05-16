@@ -49,21 +49,29 @@ if(TEST_STAN){
   Sys.which('g++')
   pkgbuild::find_rtools()
   pkgbuild::rtools_path()
-
+  pkgbuild::has_rtools(debug = TRUE)
+  pkgbuild::has_build_tools(debug = TRUE) # Stuck here. 
+  
   
   system('g++ -v')
   
+  Sys.getenv('BINPREF')
+  Sys.getenv('BINPREF64') # Blank
+  # Tried this, doesn't help Sys.setenv(BINPREF64 = "C:/RBuildTools/3.5/mingw_64/bin/")
   
   # https://github.com/stan-dev/rstan/wiki/Installing-RStan-from-source-on-Windows
 
   dotR <- file.path(Sys.getenv("HOME"), ".R")
   if (!file.exists(dotR)) dir.create(dotR)
   M <- file.path(dotR, "Makevars.win")
-  if (!file.exists(M)) file.create(M)
-  cat("\nCXX14FLAGS=-O3 -march=native",
+  if (!file.exists(M)) {
+    file.create(M)
+    cat("\nCXX14FLAGS=-O3 -march=native",
       "CXX14=$(BINPREF)g++ -O2 -march=native -mtune=native",
       "CXX11FLAGS=-O3 -march=native",
       file = M, sep = "\n", append = TRUE)
+  }
+  system(paste('open', M))
   
   # cat('Sys.setenv(BINPREF = "C:/RBuildTools/3.5/mingw_$(WIN)/bin/")',
   #     file = file.path(Sys.getenv("HOME"), ".Rprofile"),
@@ -76,6 +84,7 @@ if(TEST_STAN){
        inline::cxxfunction(
                signature(x = "integer", y = "numeric") ,
                'return ScalarReal( INTEGER(x)[0] * REAL(y)[0] ) ;')
+  
   
   
   remove.packages("rstan")
