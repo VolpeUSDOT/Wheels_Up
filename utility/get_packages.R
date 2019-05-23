@@ -52,7 +52,6 @@ if(TEST_STAN){
   pkgbuild::has_rtools(debug = TRUE)
   pkgbuild::has_build_tools(debug = TRUE) # Stuck here. 
   
-  
   system('g++ -v')
   
   Sys.getenv('BINPREF')

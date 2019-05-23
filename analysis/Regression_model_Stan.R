@@ -1,20 +1,26 @@
 # Stan regression model structures
 
 # Setup ----
-codeloc = ifelse(grepl('Flynn', normalizePath('~/')),
+# Check to see if working on EC2 instance or local
+if(Sys.getenv('USER')=='rstudio'){
+  codeloc = '~/Wheels_Up/Users/Daniel.Flynn/Documents/git/Wheels_Up'  
+  sharedloc = "~/data"
+} else { 
+  
+  codeloc = ifelse(grepl('Flynn', normalizePath('~/')),
                  "~/git/Wheels_Up",
                  "~/GitHub/Wheels_Up")
+  sharedloc = "//vntscex.local/DFS/Projects/PROJ-OR02A2/SDI/BTS_Flight_performance/Data"
+  
+}
 
 setwd(codeloc)
-source(file.path(codeloc, 'utility', 'get_packages.R'))
+# source(file.path(codeloc, 'utility', 'get_packages.R'))
 
 library(tidyverse) # if this fails, run install.packages('tidyverse')
 library(lme4) # Mixed effect multilevel models
 library(brms) # for Bayesian multilevel models using Stan
 library(sjPlot) # for some nice model output tables
-
-
-sharedloc = "//vntscex.local/DFS/Projects/PROJ-OR02A2/SDI/BTS_Flight_performance/Data"
 
 load(file.path(sharedloc, 'ASQP_2018.RData'))
 
@@ -47,12 +53,25 @@ system.time(
 
 
 # Simple Bayesian linear
-# gradient evaluation 0.578 sec
-system.time(
-  m3 <- brm(lAIR_TIME ~ MONTH + DAY_OF_WEEK + ORIGIN + DEST + CARRIER,
-            data = d_samp, chains = 2, cores = 2)
-)
+# TODO: 
+# - better priors
+# - VB for better initial values
 
+# b: population level effect
+
+# get_prior(lAIR_TIME ~ MONTH + DAY_OF_WEEK + DEP_TIME_BLK + ORIGIN + DEST + (1|CARRIER),
+#           data = d_samp)
+
+# system.time(
+#   m3 <- brm(lAIR_TIME ~ MONTH + DAY_OF_WEEK + ORIGIN + DEST + (1|CARRIER),
+#             data = d_samp, 
+#             chains = 8, cores = 8,
+#             iter = 300,
+#             warmup = 100,
+#             save_model = 'Stan_samp_m3',
+#             file = 'BRM_samp_m3')
+# )
+# 
 save(list = c('m1', 'm2', 'm3'),
      file = file.path(sharedloc, paste0('Models_', Sys.Date(), '.RData')))
 # Options to probably include: make sure save_ranef = T

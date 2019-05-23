@@ -77,8 +77,10 @@ for(i in loadpacks){
 # save the packages all together and upload to S3
 fn = "Wheels_Up_R_Packs.zip"
 
-if(!file.exists(file.path(destdir, fn))){
-  system(paste('zip -r', path.expand(file.path(destdir, fn)),
+OVERWRITE = T
+
+if(!file.exists(file.path(destdir, fn)) | OVERWRITE){
+  system(paste('zip -r -j', path.expand(file.path(destdir, fn)),
              path.expand(file.path(destdir, '.'))
              ))
 }
@@ -97,6 +99,14 @@ fn = "Wheels_Up_Code.zip"
 
 system(paste('zip -r', 
              path.expand(file.path('~', fn)),
-             path.expand(file.path(code_loc, '.'))
+             path.expand(file.path(code_loc))
              ))
 
+
+system(paste(
+  'aws s3api put-object --bucket', bucket,
+  '--key', fn,
+  '--body', 
+  path.expand(file.path('~', fn))
+)
+)
