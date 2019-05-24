@@ -1,7 +1,7 @@
 # Modeling air time
+# Full year, two carriers
 
 # TODO: 
-# - save run time
 # - Save model diagnostics
 # - Consider O_D within Carrier random effects
 
