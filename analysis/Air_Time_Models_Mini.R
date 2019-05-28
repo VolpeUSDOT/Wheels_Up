@@ -1,4 +1,5 @@
 # Modeling air time
+# Modifying to work on one carrier at a time now
 
 # TODO: 
 # - save run time
@@ -41,8 +42,16 @@ d_18 = d_18 %>%
          O_D = paste(ORIGIN, DEST, sep = "-"))
 
 # Simplest model. Take a small subset at first
+# 12 carriers to assess across the four years 
+use_carriers = c('AA', 'AS', 'B6', 'DL', 'EV', 'F9', 'HA', 'NK', 'OO', 'UA', 'VX', 'WN')
+
+
+# <<>><<>>
+carrier = use_carriers[2] # set up for looping over carreirs
+# <<>><<>>
+
 d_samp = d_18 %>% 
-  filter(CARRIER == 'DL' | CARRIER == 'VX')
+  filter(CARRIER == carrier)
 d_samp = d_samp %>%
   sample_n(size = nrow(d_samp)/100)
 
@@ -51,8 +60,182 @@ d_samp = d_samp %>%
   mutate(CARRIER = as.factor(as.character(CARRIER)),
          O_D = as.factor(as.character(O_D)),
          MONTH = as.factor(formatC(MONTH, width = 2, flag = '0'))) %>%
-  select(lAIR_TIME, MONTH, DAY_OF_WEEK, CARRIER, O_D, DEP_TIME_BLK)
+  select(AIR_TIME, MONTH, DAY_OF_WEEK, CARRIER, O_D, DEP_TIME_BLK)
 
+
+# Model 03: Within carrier model, no interactions
+
+CompiledModel03 <- stan_model(file.path(stan_models, 'Air_Time_M03.stan')) # Will read compiled model if available
+
+# Set up data
+# M03:  5 categorical predictors leading to 913 dummy variables in a model matrix 
+# lAIR_TIME ~ CARRIER + O_D + MONTH + DAY_OF_WEEK + DEP_TIME_BLK
+X = model.matrix(~ -1 + O_D + MONTH + DAY_OF_WEEK + DEP_TIME_BLK,
+                 d_samp)
+y = as.vector(d_samp$AIR_TIME)
+
+AT_Data_ls = list(N = nrow(X),
+                  y = y,
+                  K = ncol(X),
+                  X = X,
+                  scale_beta = apply(X, 2, sd) * sd(y) * 2.5, 
+                  scale_alpha = sd(y) * 10, # Broad prior for overall intercept
+                  loc_sigma = sd(y),
+                  use_y_rep = F,
+                  use_log_lik = F)
+
+# With VB
+starttime <- Sys.time()
+
+m03_vb_fit <- vb(CompiledModel03,
+                 data = AT_Data_ls)
+
+endtime = Sys.time() - starttime
+elapsed_time = paste(round(endtime, 2), attr(endtime, 'units'))
+summary_m03_vb <- summary(m03_vb_fit)$summary
+
+predictor_levels = colnames(X)
+summary_m03_vb <- data.frame(Parameter = c('alpha', predictor_levels, 'sigma', paste('Flight', 1:nrow(X)), 'lp'),
+                             summary_m03_vb)
+
+
+save(list = c('m03_vb_fit', 'elapsed_time', 'summary_m03_vb', 'predictor_levels'), 
+     file = file.path(resultsloc, paste0('M03_VB_', carrier,'_Fitted.RData')))
+
+par_extract <- extract(m03_vb_fit) 
+
+# par_df <- as.data.frame(m03_vb_fit) # Extract posterior samples for every parameter and every flight
+# launch_shinystan(m03_vb_fit)
+
+# Example visualization: DL SFO-JFK Monday Eve flights vs VX SFO-JFK Monday Eve flights
+# Can do this on local 
+
+inits_vb <- list(alpha = mean(par_extract$alpha),
+                 beta = colMeans(par_extract$beta),
+                 mu = colMeans(par_extract$mu),
+                 sigma = mean(par_extract$sigma)
+)
+
+# With MCMC, using VB outputs as initial values
+
+chain_num = 6
+iter = 200
+warmup = 100
+
+init_ls = list()
+for(l in 1:chain_num){
+  init_ls[[l]] = inits_vb
+}
+
+starttime <- Sys.time()
+
+m03_mcmc_fit <- sampling(CompiledModel03,
+                         data = AT_Data_ls,
+                         chains = chain_num,
+                         iter = iter,
+                         warmup = warmup,
+                         init = init_ls,
+                         sample_file = paste0('analysis/Stan_Models/Intermediate_M03_MCMC_', carrier,'.csv'))
+
+endtime = Sys.time() - starttime
+elapsed_time = paste(round(endtime, 2), attr(endtime, 'units'))
+summary_m03_mcmc <- summary(m03_mcmc_fit)$summary
+
+predictor_levels = colnames(X)
+summary_m03_mcmc <- data.frame(Parameter = c('alpha', predictor_levels, 'sigma', paste('Flight', 1:nrow(X)), 'lp'),
+                             summary_m03_mcmc)
+
+save(list = c('m03_mcmc_fit', 'elapsed_time', 'summary_m03_mcmc', 'predictor_levels'), 
+     file = file.path(resultsloc, paste0('M03_MCMC_', carrier,'_Fitted.RData')))
+
+# Diagnostics
+table(summary_m03_mcmc$Rhat >= 1.1)
+table(summary_m03_mcmc$n_eff <= ( chain_num * (iter - warmup) ) / 10 )
+
+# With MCMC, without initial values -- 35 minutes instead of 41 for WN. 18 min each for AA, so similar or even faster without initial values from VB.
+
+chain_num = 6
+iter = 200
+warmup = 100
+
+starttime <- Sys.time()
+
+m03_mcmc_fit <- sampling(CompiledModel03,
+                         data = AT_Data_ls,
+                         chains = chain_num,
+                         iter = iter,
+                         warmup = warmup,
+#                         init = init_ls,
+                         sample_file = paste0('analysis/Stan_Models/Intermediate_M03_MCMC_', carrier,'.csv'))
+
+endtime = Sys.time() - starttime
+elapsed_time = paste(round(endtime, 2), attr(endtime, 'units'))
+summary_m03_mcmc <- summary(m03_mcmc_fit)$summary
+
+predictor_levels = colnames(X)
+summary_m03_mcmc <- data.frame(Parameter = c('alpha', predictor_levels, 'sigma', paste('Flight', 1:nrow(X)), 'lp'),
+                               summary_m03_mcmc)
+
+save(list = c('m03_mcmc_fit', 'elapsed_time', 'summary_m03_mcmc', 'predictor_levels'), 
+     file = file.path(resultsloc, paste0('M03_MCMC_', carrier,'_NoInits_Fitted.RData')))
+
+
+# Testing gradient ----
+
+m03_mcmc_fit <- sampling(CompiledModel03,
+                         data = AT_Data_ls,
+                         chains = chain_num,
+                         iter = iter,
+                         test_grad =T)
+# M03, with interactions ----
+
+# Set up data with interactions -- fails, cannot allocate memory
+
+X = model.matrix(~ -1 # + O_D + MONTH + DAY_OF_WEEK + DEP_TIME_BLK 
+                     + O_D:MONTH + O_D:DAY_OF_WEEK + O_D:DEP_TIME_BLK
+                 , d_samp)
+y = as.vector(d_samp$AIR_TIME)
+
+AT_Data_ls = list(N = nrow(X),
+                  y = y,
+                  K = ncol(X),
+                  X = X,
+                  scale_beta = apply(X, 2, sd) * sd(y) * 2.5, 
+                  scale_alpha = sd(y) * 10, # Broad prior for overall intercept
+                  loc_sigma = sd(y),
+                  use_y_rep = F,
+                  use_log_lik = F)
+
+chain_num = 6
+iter = 200
+warmup = 100
+
+starttime <- Sys.time()
+
+m03_mcmc_fit <- sampling(CompiledModel03,
+                         data = AT_Data_ls,
+                         chains = chain_num,
+                         iter = iter,
+                         warmup = warmup,
+                         #                         init = init_ls,
+                         sample_file = paste0('analysis/Stan_Models/Intermediate_M03_MCMC_Interax_', carrier,'.csv'))
+
+endtime = Sys.time() - starttime
+elapsed_time = paste(round(endtime, 2), attr(endtime, 'units'))
+summary_m03_mcmc <- summary(m03_mcmc_fit)$summary
+
+predictor_levels = colnames(X)
+summary_m03_mcmc <- data.frame(Parameter = c('alpha', predictor_levels, 'sigma', paste('Flight', 1:nrow(X)), 'lp'),
+                               summary_m03_mcmc)
+
+save(list = c('m03_mcmc_fit', 'elapsed_time', 'summary_m03_mcmc', 'predictor_levels'), 
+     file = file.path(resultsloc, paste0('M03_MCMC_', carrier,'_NoInits_Interax_Fitted.RData')))
+
+# Old, across multiple carriers ----
+
+MULTICARRIER = F
+
+if(!MULTICARRIER){
 # Model 01: Carrier as fixed effect, no interactions ----
 
 CompiledModel01 <- stan_model(file.path(stan_models, 'Air_Time_M01.stan')) # Will read compiled model if available
@@ -120,7 +303,7 @@ m01_mcmc_fit <- sampling(CompiledModel01,
                        iter = 200,
                        warmup = 100,
                        init = init_ls,
-                       sample_file = file.path(resultsloc, 'Intermediate_m01_mcmc_fit.csv'))
+                       sample_file = 'analysis/Stan_Models/Intermediate_TEST_m01_mcmc_fit.csv')
 
 endtime = Sys.time() - starttime
 elapsed_time = paste(round(endtime, 2), attr(endtime, 'units'))
@@ -199,10 +382,11 @@ m02_mcmc_fit <- sampling(CompiledModel02,
                          iter = 200,
                          warmup = 100,
                          init = init_ls,
-                         sample_file = file.path(resultsloc, 'Intermediate_m02_mcmc_fit.csv'))
+                         sample_file = 'analysis/Stan_Models/Intermediate_m02_mcmc_fit.csv')
 
 endtime = Sys.time() - starttime
 elapsed_time = paste(round(endtime, 2), attr(endtime, 'units'))
 
 save(c('m02_mcmc_fit', 'elapsed_time'), file = file.path(resultsloc, 'M02_MCMC_Fitted.RData'))
 
+} # End if multicarrier
