@@ -33,4 +33,23 @@ system(paste(
   file.path(sharedloc, 'Sync', sync_dir, 'results.zip')
   ))
 
+# Get OLS summary results -- summary csv first
+
+OLS_res = system(paste(
+  'aws s3 ls', paste0('s3://', bucket, '/ols_all/')), intern = T)
+
+spl = strsplit(OLS_res, " +")
+sizes = unlist(lapply(spl, function(x) x[[3]]))
+files = unlist(lapply(spl, function(x) x[[4]]))
+
+sum_files = files[grep('\\w{2}_OLS_Summary.csv', files)]
+
+for(s in sum_files){
+  system(
+    paste(
+      'aws s3 cp', paste0('s3://', bucket, '/ols_all/', s),
+      file.path(sharedloc, 'Sync', sync_dir, s))
+    )
+  
+}
 

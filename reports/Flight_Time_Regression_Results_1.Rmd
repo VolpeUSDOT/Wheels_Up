@@ -1,0 +1,111 @@
+---
+title: "BTS Flight Time Regression Results -- 1 year"
+output: 
+  html_document:
+    self_contained: true
+    toc: true
+    toc_depth: 1
+    toc_float:
+      collapsed: true
+      smooth_scroll: false
+---
+
+<!-- saved from url=(0014)about:internet -->
+<!-- This needs to be manually added to the second line of the html -->
+
+# Overview 
+
+Summary of results from models of all reportable flights in 2018. 
+
+Models all followed a similar structure, namely:
+$$
+AIR_{CARRIER}_{O-D} ~ MONTH_OF_YEAR + DAY_OF_WEEK + DEP_TIME_BLK
+$$
+For each carrier, each origin-destination flight segment was modeled as a linear combination of month of year, day of week, and departure time block (hour of day). Two- and three-way interactions were included if they improved model fit by AIC.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, warning=F, message=F)
+
+library(tidyverse)
+library(knitr)
+library(DT)
+library(kableExtra)
+library(plotly) # note: masks filter() from dplyr
+
+codeloc = ifelse(grepl('Flynn', normalizePath('~/')),
+                   "~/git/Wheels_Up",
+                   "~/GitHub/Wheels_Up")
+sharedloc = "//vntscex.local/DFS/Projects/PROJ-OR02A2/SDI/BTS_Flight_performance/Data"
+resultsloc = "//vntscex.local/DFS/Projects/PROJ-OR02A2/SDI/BTS_Flight_performance/Results"
+
+```
+
+TODO:
+
+- Summarize n flight segments, r2 distribution by carrier
+
+- Summarize n flights, r2 distribution by origin and destination
+
+- R2 by N, R2 by mean flight time, and r2 by sd flight time plots
+
+- Table of most and least predictable flights
+
+The following tables summarizes the predictability of flights by carrier.
+
+
+```{r carr_fl_prep}
+ols_res <- dir(file.path(resultsloc, 'OLS_2018'))
+
+d <- vector()
+for(i in 1:length(ols_res)){
+  dx <- read.csv(file.path(resultsloc, 'OLS_2018', ols_res[i]))
+  carrier = substr(ols_res[i], 1, 2)
+  dx <- data.frame(carrier, dx)
+  dx <- dx %>%
+    filter(O_D != '') %>%
+    mutate(Origin = substr(O_D, 1, 3),
+           Destination = substr(O_D, 5, 7))
+  
+  d <- rbind(d, dx)
+}
+```
+
+
+
+```{r carr_summary}
+d_carrier <- d %>%
+  group_by(carrier) %>%
+  summarize(N_flight_segments = n(),
+            N_estimated = sum(!is.na(r2)),
+            R2_median = round(median(r2, na.rm=T), 3),
+            R2_max = round(max(r2[r2 != 1], na.rm = T), 3),
+            Pct_High_R2 = round(100*sum(!is.na(r2) & r2 > 0.5) / length(r2), 2))
+
+kable(d_carrier,
+      format.args = list(big.mark = ','),
+      caption = "Summary of flight predictability by carrier in 2018." ) %>% 
+  kable_styling(bootstrap_options = c("striped", "hover"))
+
+```
+
+
+
+```{r airport_summary}
+d_airport <- d %>%
+  group_by(Origin) %>%
+  summarize(N_flight_segments = n(),
+            N_estimated = sum(!is.na(r2)),
+            R2_median = round(median(r2, na.rm=T), 3),
+            R2_max = round(max(r2[r2 != 1], na.rm = T), 3),
+            Pct_High_R2 = round(100*sum(!is.na(r2) & r2 > 0.5) / length(r2), 2))
+
+datatable(d_airport,
+          rownames = F,
+          filter = 'top',
+          options = list(order = list(list(3, 'desc')),
+                        searchCols = list(NULL, list(search = '100 ... 1000'), NULL, NULL, NULL, NULL, NULL),
+                         pageLength = 10),
+      caption = "Summary of flight predictability by origin airport in 2018. Airports with at least 100 departing flight segments shown by default." ) 
+
+# TODO: load full airport names for hover over
+```
