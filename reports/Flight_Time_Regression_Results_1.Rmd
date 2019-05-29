@@ -17,11 +17,13 @@ output:
 
 Summary of results from models of all reportable flights in 2018. 
 
-Models all followed a similar structure, namely:
+The modeling framework is as follows:
 $$
-AIR_{CARRIER}_{O-D} ~ MONTH_OF_YEAR + DAY_OF_WEEK + DEP_TIME_BLK
+AIRTIME_{CARRIER_{O-D}} = \beta1_{CARRIER_{O-D}} MONTH_{CARRIER_{O-D}} + \beta2_{CARRIER_{O-D}}DAY_{CARRIER_{O-D}} + \beta3_{CARRIER_{O-D}}DEP_{CARRIER_{O-D}}
 $$
-For each carrier, each origin-destination flight segment was modeled as a linear combination of month of year, day of week, and departure time block (hour of day). Two- and three-way interactions were included if they improved model fit by AIC.
+For each carrier, each origin-destination flight segment was modeled as a linear combination of month of year, day of week, and departure time block (hour of day). These are the variables that an air carrier would know when scheduling a flight, and thus what would be available to provide a prediction of estimated flight time for a consumer at the time of booking. Two- and three-way interactions were included if they improved model fit by AIC.
+
+Additional variables to consider could be predictable climatological features (El Nino) or expected airport congestion. 
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = F, warning=F, message=F)
@@ -50,7 +52,11 @@ TODO:
 
 - Table of most and least predictable flights
 
-The following tables summarizes the predictability of flights by carrier.
+# Summary tables 
+
+The following table summarizes the predictability of flights by carrier. For each carrier, the number of unique flight segments (origin-destination pairs) is provided. Not all flight segments could be reliably modeled; for instance, American flew only a single flight between DCA and Atlanta in 2018 (on 2018-12-23, at 9pm). With only a single value for this combination of carrier and origin-destination pair, the current modeling framework does not produce an estimate for this flight segment.
+
+A hierarchical mixed effect model would produce an estimate for such a flight segment, by pooling information from other carrier flying the same route. However, we found these models to have difficulty converging using a Monte Carlo Markov Chain approach, so have elected to use the ordinary least squares regression approach, meaning each carrier x origin-destination pair is modeled separately.
 
 
 ```{r carr_fl_prep}
