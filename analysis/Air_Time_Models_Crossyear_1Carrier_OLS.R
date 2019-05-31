@@ -55,10 +55,28 @@ d_crossyear <- d_crossyear %>%
 rm(d_15, d_16, d_17, d_18); gc()
 system('free -g')# Print free memory in Gb
 
+# Function to save a minimal model object for predict()
+cleanModel1 = function(cm) {
+  # just in case we forgot to set
+  # y=FALSE and model=FALSE
+  cm$y = c()
+  cm$model = c()
+  cm$residuals = c()
+  cm$fitted.values = c()
+  cm$effects = c()
+  cm$qr = c()  
+  cm$linear.predictors = c()
+  cm$weights = c()
+  cm$prior.weights = c()
+  cm$data = c()
+  cm
+}
+
 # Loop over carriers ----
 
 for(carrier in use_carriers){ 
   # carrier = use_carriers[7]
+  cat(rep('<<>>', 20), '\n Beginning', carrier, 'at', as.character(Sys.time()), '\n\n\n')
   
   d_samp = d_crossyear %>%
     filter(CARRIER == carrier)
@@ -94,7 +112,7 @@ for(carrier in use_carriers){
                          top_sig_coef = '', top_sig_coef_eff = '', Yr = ''), 
               row.names = F, sep = ',',
               #quote = F,
-              file.path(resultsloc, paste(carrier, "OLS_Summary.csv", sep = "_")))    
+              file.path(resultsloc, paste(carrier, "Crossyear_OLS_Summary.csv", sep = "_")))    
   
   mod_list <- foreach(od = O_D, .packages = 'dplyr') %dopar% {
     write.table(data.frame(Time = as.character(Sys.time()), Completed = as.character(od)),
@@ -181,7 +199,14 @@ for(carrier in use_carriers){
                 file = file.path(resultsloc, paste(carrier, "Crossyear_OLS_Summary.csv", sep = "_")),
                 sep = ',',
                 append = T)
-    m_ols_best_fit 
+    #m_ols_best_fit
+    # Save minimal output for predict: summary, summary.aov, and clean model for predict()
+    # list(summary = summary(m_ols_best_fit),
+    #      summary.aov = summary.aov(m_ols_best_fit),
+    #      mod = cleanModel1(m_ols_best_fit))
+    mod = cleanModel1(m_ols_best_fit)
+    rm(m_ols_best_fit, m_ols_fit_interax, m_ols_fit_noyr)
+    mod
   } # end dopar loop
   stopCluster(cl); gc()
   
@@ -192,4 +217,6 @@ for(carrier in use_carriers){
        file = file.path(resultsloc, paste0('OLS_interax_', carrier,'_Crossyear_Fitted.RData')))
   
   cat(rep('<<>>', 20), '\n Completed', carrier, 'in', elapsed_time, '\n\n\n')
+  system('df -h --total') # Show available disk space
+  
 } # End carrier loop ----
