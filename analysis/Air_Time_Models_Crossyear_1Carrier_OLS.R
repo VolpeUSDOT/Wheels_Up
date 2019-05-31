@@ -18,7 +18,8 @@ if(Sys.getenv('USER')=='rstudio'){
 }
 
 setwd(codeloc)
-stan_models <- file.path(codeloc, 'analysis', 'Stan_Models')
+Analysis = 'OLS_Crossyear_1Carrier'
+saveloc = file.path(resultsloc, Analysis); system(paste('mkdir -p', saveloc))
 
 library(tidyverse) # if this fails, run install.packages('tidyverse')
 library(foreach)
@@ -26,11 +27,15 @@ library(doParallel)
 
 # Analysis prep  ----
 
-# subset to only flights with available air time, create a log-transformed air time variable, and create unique origin-destination pair variable
+# subset to only flights with available air time, and create unique origin-destination pair variable
 
 # Full year model, by carrier
-# 12 carriers to assess across the four years 
-use_carriers = c('AA', 'AS', 'B6', 'DL', 'EV', 'F9', 'HA', 'NK', 'OO', 'UA', 'VX', 'WN')
+# 12 carriers to assess across the four years -- in order of size   
+# use_carriers = c('AA', 'AS', 'B6', 'DL', 'EV', 'F9', 'HA', 'NK', 'OO', 'UA', 'VX', 'WN')
+use_carriers = c('VX', 'HA', 'NK', 'F9', 'AS', 'EV', 'B6', 'UA', 'AA', 'DL', 'OO', 'WN')
+# manually breaking down to one at a time
+use_carriers = c('UA', 'DL', 'OO', 'WN')
+
 SUBSAMPLE = 0
 
 load(file.path(sharedloc, 'ASQP_2018.RData'))
@@ -57,26 +62,23 @@ system('free -g')# Print free memory in Gb
 
 # Function to save a minimal model object for predict()
 cleanModel1 = function(cm) {
-  # just in case we forgot to set
-  # y=FALSE and model=FALSE
-  cm$y = c()
-  cm$model = c()
-  cm$residuals = c()
-  cm$fitted.values = c()
-  cm$effects = c()
-  cm$qr = c()  
-  cm$linear.predictors = c()
-  cm$weights = c()
-  cm$prior.weights = c()
-  cm$data = c()
+  cm$y = NULL
+  cm$model = NULL
+  cm$residuals = NULL
+  cm$fitted.values = NULL
+  cm$effects = NULL
+  cm$qr = NULL
+  cm$linear.predictors = NULL
+  cm$weights = NULL
+  cm$prior.weights = NULL
+  cm$data = NULL
   cm
 }
 
 # Loop over carriers ----
 
 for(carrier in use_carriers){ 
-  # carrier = use_carriers[7]
-  cat(rep('<<>>', 20), '\n Beginning', carrier, 'at', as.character(Sys.time()), '\n\n\n')
+  # carrier = use_carriers[1]
   
   d_samp = d_crossyear %>%
     filter(CARRIER == carrier)
@@ -105,23 +107,25 @@ for(carrier in use_carriers){
   
   mod_list = list()
   O_D = unique(d_samp$O_D)
+  cat(rep('<<>>', 20), '\n Beginning', carrier, 'at', as.character(Sys.time()), 
+      '\n with', length(O_D),'O-D pairs \n\n\n')
   
-  writeLines(c(""), file.path(resultsloc, paste(carrier, "log.txt", sep = "_")))    
+  writeLines(c(""), file.path(saveloc, paste(carrier, "log.txt", sep = "_")))    
   write.table(data.frame(O_D = '', N = '', Obs_Mean = '',
                          Obs_SD = '', r2 = '', 
                          top_sig_coef = '', top_sig_coef_eff = '', Yr = ''), 
               row.names = F, sep = ',',
               #quote = F,
-              file.path(resultsloc, paste(carrier, "Crossyear_OLS_Summary.csv", sep = "_")))    
+              file.path(saveloc, paste(carrier, "Crossyear_OLS_Summary.csv", sep = "_")))    
   
   mod_list <- foreach(od = O_D, .packages = 'dplyr') %dopar% {
     write.table(data.frame(Time = as.character(Sys.time()), Completed = as.character(od)),
                 row.names = F,
                 col.names = F,
                 quote = F,
-                file = file.path(resultsloc, paste(carrier, "log.txt", sep = "_")),
+                file = file.path(saveloc, paste(carrier, "log.txt", sep = "_")),
                 append = T)
-    # od = as.character(O_D[2])
+    # od = as.character(O_D[1])
     d_od = d_samp %>% filter(O_D == od)
     
     pred_vars = c('YEAR', 'MONTH', 'DAY_OF_WEEK', 'DEP_TIME_BLK')
@@ -196,7 +200,7 @@ for(carrier in use_carriers){
     write.table(sumvals,
                 row.names = F,
                 col.names = F,
-                file = file.path(resultsloc, paste(carrier, "Crossyear_OLS_Summary.csv", sep = "_")),
+                file = file.path(saveloc, paste(carrier, "Crossyear_OLS_Summary.csv", sep = "_")),
                 sep = ',',
                 append = T)
     #m_ols_best_fit
@@ -205,16 +209,19 @@ for(carrier in use_carriers){
     #      summary.aov = summary.aov(m_ols_best_fit),
     #      mod = cleanModel1(m_ols_best_fit))
     mod = cleanModel1(m_ols_best_fit)
-    rm(m_ols_best_fit, m_ols_fit_interax, m_ols_fit_noyr)
+    rm(d_od, m_ols_best_fit, m_ols_fit_interax, m_ols_fit_noyr); gc()
     mod
   } # end dopar loop
-  stopCluster(cl); gc()
+  
+  stopCluster(cl); rm(cl, d_samp); gc()
   
   endtime = Sys.time() - starttime
   elapsed_time = paste(round(endtime, 2), attr(endtime, 'units'))
   
+  cat('\n Saving', carrier, '\n')
+  
   save(list = c('mod_list', 'elapsed_time', 'O_D'), 
-       file = file.path(resultsloc, paste0('OLS_interax_', carrier,'_Crossyear_Fitted.RData')))
+       file = file.path(saveloc, paste0('OLS_interax_', carrier,'_Crossyear_Fitted.RData')))
   
   cat(rep('<<>>', 20), '\n Completed', carrier, 'in', elapsed_time, '\n\n\n')
   system('df -h --total') # Show available disk space
