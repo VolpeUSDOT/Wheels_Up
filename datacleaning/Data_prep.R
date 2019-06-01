@@ -1,4 +1,4 @@
-# Read in ASQP data for 2015-2017
+# Read in ASQP data for 2015-2018, Plus available months from 2019
 # Fixes the comma issue in ORIGIN_CITY_NAME and DEST_CITY_NAME, which causes typical comma-separated value parsers to fail
 # Saves results on shared drive as .RData files
 
@@ -8,12 +8,13 @@ library(tidyverse)
 # devtools::install_github("gadenbuie/regexplain")
 codeloc = ifelse(grepl('Flynn', normalizePath('~/')),
                  "~/git/Wheels_Up",
-                 "Erika_put_your_path_here/Wheels_Up")
+                 "~/GitHub/Wheels_Up")
 sharedloc = "//vntscex.local/DFS/Projects/PROJ-OR02A2/SDI/BTS_Flight_performance/Data"
+# sharedloc = 'C:/Users/Daniel.Flynn/Desktop'
 
-avail_data = dir(sharedloc)
+avail_data = dir(sharedloc)[grep('^ASQP.\\d{4}.csv$', dir(sharedloc))] # Match with regular expresion to only get csv files
 
-avail_data = avail_data[grep('^ASQP.\\d{4}.csv$', avail_data)] # Match with regular expresion to only get csv files
+new_data = dir(sharedloc)[grep('On_Time_Reporting_Carrier_On_Time_Performance_\\(\\w*\\)_\\d{4}_\\d{1,2}', dir(sharedloc))] # Newly available data, currently Jan/Feb 2019.
 
 # Function ----
 
@@ -83,6 +84,44 @@ save(list = 'd_15', file = file.path(sharedloc, 'ASQP_2015.RData'))
 save(list = 'd_16', file = file.path(sharedloc, 'ASQP_2016.RData'))
 save(list = 'd_17', file = file.path(sharedloc, 'ASQP_2017.RData'))
 save(list = 'd_18', file = file.path(sharedloc, 'ASQP_2018.RData'))
+
+# Read new data, from 'Prezipped File' format via Transtats
+keepvars = names(d_18)
+
+d_19_1 <- read_csv(file.path(sharedloc, new_data[grep('2019_1', new_data)]))
+d_19_2 <- read_csv(file.path(sharedloc, new_data[grep('2019_2', new_data)]))
+
+# Change naming convention to match already prepared data: All caps, with underscore to separate names
+oldnames <- names(d_19_1)
+
+nameconv <- function(oldnames){
+  # gsub: Find single uppercase letters followed by lowercase letters, replace with the same thing preceded by an underscore 
+  nn <- gsub('(.)([A-Z]{1}[a-z])', '\\1_\\2', oldnames)
+  # convert to uppercase
+  nn <- toupper(nn)
+  # eliminate duplicate underscores
+  nn <- sub('__', '_', nn)
+  # Fix Day of week and day of month
+  nn <- gsub('DAYOF', 'DAY_OF', nn)
+  nn <- gsub('OFWEEK', 'OF_WEEK', nn)
+  nn
+}
+  
+names(d_19_1) <- nameconv(names(d_19_1))
+names(d_19_2) <- nameconv(names(d_19_2))
+
+# Keep only which we used in in other prepped data. One difference: CRS, DEP and ARR times in other prepped data are split to _HR and _MIN, while new data keeps together
+
+keepnames = c(names(d_18), 'CRS_DEP_TIME', 'CRS_ARR_TIME', 'DEP_TIME', 'ARR_TIME')
+
+d_19_1 <- d_19_1 %>%
+  select(names(d_19_1)[names(d_19_1) %in% keepnames])
+
+d_19_2 <- d_19_2 %>%
+  select(names(d_19_2)[names(d_19_2) %in% keepnames])
+
+save(list = c('d_19_1', 'd_19_2'),
+     file = file.path(sharedloc, 'ASQP_2019.RData'))
 
 # Scan across years ----
 # Extract carriers and airports, make tables showing which years they appear in and how frequently
