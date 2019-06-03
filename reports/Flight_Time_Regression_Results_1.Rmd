@@ -23,7 +23,7 @@ $$
 AIRTIME_{C_{O-D}} = \beta1_{C_{O-D}} Year_{C_{O-D}} + \beta2_{C_{O-D}} MONTH_{C_{O-D}} + \beta3_{C_{O-D}}DAY_{C_{O-D}} + \beta4_{C_{O-D}}DEP_{C_{O-D}}
 $$
 
-For each carrier, each origin-destination flight segment was modeled as a linear combination of month of year, day of week, and departure time block (hour of day). These are the variables that an air carrier would know when scheduling a flight, and thus what would be available to provide a prediction of estimated flight time for a consumer at the time of booking. Two- and three-way interactions were included if they improved model fit by AIC. The best fit model varied by flight segment and carrier, with inclusion of interactions determined by AIC.
+For each carrier, each origin-destination flight segment was modeled as a linear combination of month of year, day of week, and departure time block (hour of day). These are the variables that an air carrier would know when scheduling a flight, and thus what would be available to provide a prediction of estimated flight time for a consumer at the time of booking. Two-way interactions were included. 
 
 Second, individually modeling each flight segment (origin-destination, O-D) across carrier:
 
@@ -31,7 +31,7 @@ $$
 AIRTIME_{O-D} = \beta1_{O-D} CARRIER_{O-D} + \beta2_{O-D} YEAR_{O-D} + \beta3_{O-D} MONTH_{O-D} + \beta4_{O-D}DAY_{O-D} + \beta5_{O-D}DEP_{O-D}
 $$
 
-This approach differs from the first by including all flights on a particular flight segment regardless of carrier. The carrier-specific effects are then an offset from the overall estiamte, with two- and three-way interactions again included to the extent that they improved model fit. 
+This approach differs from the first by including all flights on a particular flight segment regardless of carrier. The carrier-specific effects are then an offset from the overall estiamte, with two--way interactions again included. 
 
 Additional variables to consider could be predictable climatological features (El Nino) or expected airport congestion. 
 

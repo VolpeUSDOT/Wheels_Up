@@ -34,24 +34,30 @@ system(paste(
   ))
 
 # Get OLS summary results -- summary csv first
-
-Analysis = 'OLS_Crossyear_1O_D'
-
-OLS_res = system(paste(
-  'aws s3 ls', paste0('s3://', bucket, '/', Analysis,'/')), intern = T)
-
-spl = strsplit(OLS_res, " +")
-sizes = unlist(lapply(spl, function(x) x[[3]]))
-files = unlist(lapply(spl, function(x) x[[4]]))
-
-sum_files = files[grep('OLS_Summary.csv', files)]
-
-for(s in sum_files){
-  system(
-    paste(
-      'aws s3 cp', paste0('s3://', bucket, '/', Analysis,'/', s),
-      file.path(sharedloc, 'Sync', sync_dir, s))
-    )
+olsget <- function(Analysis, summary_file_namepart = 'Validate_Internal.csv'){
+  OLS_res = system(paste(
+    'aws s3 ls', paste0('s3://', bucket, '/', Analysis,'/')), intern = T)
   
+  spl = strsplit(OLS_res, " +")
+  sizes = unlist(lapply(spl, function(x) x[[3]]))
+  files = unlist(lapply(spl, function(x) x[[4]]))
+  
+  sum_files = files[grep(summary_file_namepart, files)]
+  
+  for(s in sum_files){
+    system(
+      paste(
+        'aws s3 cp', paste0('s3://', bucket, '/', Analysis,'/', s),
+        file.path(sharedloc, 'Sync', sync_dir, s))
+    )
+    
+  }
 }
 
+
+
+olsget('OLS_Crossyear_1O_D')
+
+olsget('OLS_Crossyear_1Carrier_Validate_Internal')
+
+olsget('OLS_Crossyear_1Carrier_Validate_2019', 'Validate_2019.csv')
