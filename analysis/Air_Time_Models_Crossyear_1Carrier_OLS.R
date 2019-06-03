@@ -19,131 +19,141 @@ if(Sys.getenv('USER')=='rstudio'){
   
 }
 
-# <<><<><<>
-VALIDATION = 'Internal' # '2019' # Two options for validation. One, use a training/test dataset and validate internally 
-# <<><<><<>
-
-setwd(codeloc)
-Analysis = paste0('OLS_Crossyear_1Carrier_Validate_', VALIDATION)
-
-saveloc = file.path(resultsloc, Analysis); system(paste('mkdir -p', saveloc))
-
-library(tidyverse) # if this fails, run install.packages('tidyverse')
-library(foreach)
-library(doParallel)
-
-# Check to see that prepped data is available. Will load individual years and create test/training data sets if necessary.
-source(file.path(codeloc, 'datacleaning', 'Analysis_prep.R'))
-
-if(VALIDATION == 'Internal'){
-  load(file.path(sharedloc, 'ASQP_2015-2018_train.RData')) # For internal. Includes both d_crossyear_train and d_crossyear_validate
-  d_train <- d_crossyear_train # rename data frames
-  d_test <- d_crossyear_validate
-  rm(d_crossyear_train, d_crossyear_validate)
-}
-if(VALIDATION == '2019'){
-  load(file.path(sharedloc, 'ASQP_2015-2018.RData'))
-  load(file.path(sharedloc, 'ASQP_2019_validate.RData')) 
-  d_train <- d_crossyear # rename data frames
-  d_test <- d_19
-  rm(d_crossyear, d_19)
-}
-
-# Function to save a minimal model object for predict()
-cleanModel1 = function(cm) {
-  cm$y = NULL
-  cm$model = NULL
-  cm$residuals = NULL
-  cm$fitted.values = NULL
-  cm$effects = NULL
-  cm$qr = NULL
-  cm$linear.predictors = NULL
-  cm$weights = NULL
-  cm$prior.weights = NULL
-  cm$data = NULL
-  cm
-}
-# Funtion to match factors levesl between training and validation data sets. Add empty factor levels if necessary 
-levadd <- function(factor_var, test, train){
-  tlev <- levels(test[,factor_var])
-  addlev <- levels(train[,factor_var])[!levels(train[,factor_var]) %in% tlev]
-  levels(test[,factor_var]) = c(levels(test[,factor_var]), addlev)
-  test[,factor_var]
-}
-
-# Loop over carriers ----
-
-for(carrier in use_carriers){ 
-  # carrier = use_carriers[1]
+# <<><<><<> START LOOP OVER VALIDATION OPTIONS
+VALIDATION_opts = c('Internal', '2019') # 'Internal' # Two options for validation. One, use a training/test dataset and validate internally 
+for(VALIDATION in VALIDATION_opts){
+  # <<><<><<>
   
-  d_samp = d_train %>%
-    filter(CARRIER == carrier)
+  setwd(codeloc)
+  Analysis = paste0('OLS_Crossyear_1Carrier_Validate_', VALIDATION)
   
-  d_valid_samp = d_test %>%
-    filter(CARRIER == carrier)
+  saveloc = file.path(resultsloc, Analysis); system(paste('mkdir -p', saveloc))
   
-  # Drop unused levels
-  d_samp = d_samp %>%
-    mutate(CARRIER = as.factor(as.character(CARRIER)),
-           O_D = as.character(O_D),
-           MONTH = as.factor(formatC(MONTH, width = 2, flag = '0')),
-           DAY_OF_WEEK = as.factor(as.character(DAY_OF_WEEK)),
-           DEP_TIME_BLK = as.factor(as.character(DEP_TIME_BLK))) %>%
-    select(AIR_TIME, YEAR, MONTH, DAY_OF_WEEK, DEP_TIME_BLK, O_D)
+  library(tidyverse) # if this fails, run install.packages('tidyverse')
+  library(foreach)
+  library(doParallel)
   
-  d_valid_samp = d_valid_samp %>%
-    mutate(CARRIER = as.factor(as.character(CARRIER)),
-           O_D = as.character(O_D),
-           MONTH = as.factor(formatC(MONTH, width = 2, flag = '0')),
-           DAY_OF_WEEK = as.factor(as.character(DAY_OF_WEEK)),
-           DEP_TIME_BLK = as.factor(as.character(DEP_TIME_BLK))) %>%
-    select(AIR_TIME, YEAR, MONTH, DAY_OF_WEEK, DEP_TIME_BLK, O_D)
+  # Check to see that prepped data is available. Will load individual years and create test/training data sets if necessary.
+  source(file.path(codeloc, 'datacleaning', 'Analysis_prep.R'))
   
-  # Add empty factor levels to validation sample if necessary. Otherwise, prediction fails (requires same set of levels for factors)
-  vars = sapply(d_valid_samp, class)
-  factorvars = names(vars[which(vars == 'factor')])
-  
-  for(i in factorvars) { 
-    d_valid_samp[,i] = levadd(factor_var = i, d_valid_samp, d_samp) 
+  if(VALIDATION == 'Internal'){
+    load(file.path(sharedloc, 'ASQP_2015-2018_train.RData')) # For internal. Includes both d_crossyear_train and d_crossyear_validate
+    d_train <- d_crossyear_train # rename data frames
+    d_test <- d_crossyear_validate
+    rm(d_crossyear_train, d_crossyear_validate)
   }
-  # OLS regression, multicore over O_D pairs: Within carrier model, no interactions
+  if(VALIDATION == '2019'){
+    load(file.path(sharedloc, 'ASQP_2015-2018.RData'))
+    load(file.path(sharedloc, 'ASQP_2019_validate.RData')) 
+    d_train <- d_crossyear # rename data frames
+    d_test <- d_19
+    rm(d_crossyear, d_19)
+  }
   
-  starttime <- Sys.time()
+  # Function to save a minimal model object for predict()
+  cleanModel1 = function(cm) {
+    cm$y = NULL
+    cm$model = NULL
+    cm$residuals = NULL
+    cm$fitted.values = NULL
+    cm$effects = NULL
+    cm$qr = NULL
+    cm$linear.predictors = NULL
+    cm$weights = NULL
+    cm$prior.weights = NULL
+    cm$data = NULL
+    cm
+  }
+  # Funtion to match factors levesl between training and validation data sets. Add empty factor levels if necessary 
+  levadd <- function(factor_var, test, train){
+    tlev <- levels(test[,factor_var])
+    addlev <- levels(train[,factor_var])[!levels(train[,factor_var]) %in% tlev]
+    levels(test[,factor_var]) = c(levels(test[,factor_var]), addlev)
+    test[,factor_var]
+  }
   
-  # Start parallel loop over O_D pairs ----
-  avail.cores <- parallel::detectCores()
-  cl <- makeCluster(avail.cores) 
-  registerDoParallel(cl)
+  # Loop over carriers ----
   
-  O_D = unique(d_samp$O_D)
-  
-  cat(rep('<<>>', 20), '\n Beginning', carrier, 'at', as.character(Sys.time()), 
-      '\n with', length(O_D),'O-D pairs \n\n\n')
-  
-  writeLines(c(""), file.path(saveloc, paste(carrier, "log.txt", sep = "_")))    
-  write.table(data.frame(O_D = '', N = '', Obs_Mean = '',
-                         Obs_SD = '', 
-                         N_valid = '', Obs_Mean_valid = '', Obs_SD_valid = '',
-                         r2 = '', RMSE = '', MAE = '',
-                         top_sig_coef = '', top_sig_coef_eff = '', Yr = '', Model = ''), 
-              row.names = F, sep = ',',
-              #quote = F,
-              file.path(saveloc, paste0(carrier, "_", Analysis, ".csv")))    
-  
-  # Start parallel loop. No longer saving full models to mod_list, only saving diagnostics.
-  foreach(od = O_D, .packages = 'dplyr') %dopar% {
-    write.table(data.frame(Time = as.character(Sys.time()), Completed = as.character(od)),
-                row.names = F,
-                col.names = F,
-                quote = F,
-                file = file.path(saveloc, paste(carrier, "log.txt", sep = "_")),
-                append = T)
+  for(carrier in use_carriers){ 
+    # carrier = use_carriers[1]
     
-    for(od in O_D[1:16]){
-      cat(as.character(od), '\n')
-      # od = as.character(O_D[1])
+    d_samp = d_train %>%
+      filter(CARRIER == carrier)
+    
+    d_valid_samp = d_test %>%
+      filter(CARRIER == carrier)
+    
+    # Drop unused levels
+    d_samp = d_samp %>%
+      mutate(CARRIER = as.factor(as.character(CARRIER)),
+             O_D = as.character(O_D),
+             YEAR = as.factor(as.character(YEAR)),
+             MONTH = as.factor(formatC(MONTH, width = 2, flag = '0')),
+             DAY_OF_WEEK = as.factor(as.character(DAY_OF_WEEK)),
+             DEP_TIME_BLK = as.factor(as.character(DEP_TIME_BLK))) %>%
+      select(AIR_TIME, YEAR, MONTH, DAY_OF_WEEK, DEP_TIME_BLK, O_D)
+    
+    d_valid_samp = d_valid_samp %>%
+      mutate(CARRIER = as.factor(as.character(CARRIER)),
+             O_D = as.character(O_D),
+             YEAR = as.factor(as.character(YEAR)),
+             MONTH = as.factor(formatC(MONTH, width = 2, flag = '0')),
+             DAY_OF_WEEK = as.factor(as.character(DAY_OF_WEEK)),
+             DEP_TIME_BLK = as.factor(as.character(DEP_TIME_BLK))) %>%
+      select(AIR_TIME, YEAR, MONTH, DAY_OF_WEEK, DEP_TIME_BLK, O_D)
+    
+    # Add empty factor levels to validation sample if necessary. Otherwise, prediction fails (requires same set of levels for factors)
+    vars = sapply(d_valid_samp, class)
+    factorvars = names(vars[which(vars == 'factor')])
+    
+    for(i in factorvars) { 
+      d_valid_samp[,i] = levadd(factor_var = i, d_valid_samp, d_samp) 
+    }
+    
+    # OLS regression, multicore over O_D pairs: Within carrier model, no interactions
+    
+    starttime <- Sys.time()
+    
+    # Start parallel loop over O_D pairs ----
+    avail.cores <- parallel::detectCores()
+    cl <- makeCluster(avail.cores) 
+    registerDoParallel(cl)
+    
+    O_D = unique(d_samp$O_D)
+    
+    cat(rep('<<>>', 20), '\n Beginning', carrier, 'at', as.character(Sys.time()), 
+        '\n with', length(O_D),'O-D pairs \n\n\n')
+    
+    writeLines(c(""), file.path(saveloc, paste(carrier, "log.txt", sep = "_")))    
+    write.table(data.frame(O_D = '', N = '', Obs_Mean = '',
+                           Obs_SD = '', 
+                           N_valid = '', Obs_Mean_valid = '', Obs_SD_valid = '',
+                           r2 = '', RMSE = '', MAE = '',
+                           top_sig_coef = '', top_sig_coef_eff = '', Yr = '', Model = ''), 
+                row.names = F, sep = ',',
+                #quote = F,
+                file.path(saveloc, paste0(carrier, "_", Analysis, ".csv")))    
+    
+    # Start parallel loop. No longer saving full models to mod_list, only saving diagnostics.
+    foreach(od = O_D, .packages = 'dplyr') %dopar% {
+      write.table(data.frame(Time = as.character(Sys.time()), Completed = as.character(od)),
+                  row.names = F,
+                  col.names = F,
+                  quote = F,
+                  file = file.path(saveloc, paste(carrier, "log.txt", sep = "_")),
+                  append = T)
+      
+      # for(od in O_D[753:770]){ # Manual loop to debug
+      #   cat(as.character(od), '\n')
+      # od = as.character(O_D[7])
       d_od = d_samp %>% filter(O_D == od)
       d_v_od = d_valid_samp %>% filter(O_D == od)
+      
+      # For 2019 validation, we will use the year coefficients for 2018. Simplest way to do this is to update the d_v_od file with 2018 as the year
+      if(VALIDATION == '2019') {
+        d_v_od$YEAR = '2018'
+        d_v_od$YEAR <- as.factor(d_v_od$YEAR)
+      }
       
       # Can only use validation data for observations with factor levels also present in training data
       vars = sapply(d_od, class)
@@ -151,9 +161,9 @@ for(carrier in use_carriers){
       
       for(i in factorvars) { 
         zerolevs <- which(table(d_od[,i]) == 0)
-        # Drop any observations in validation set which are in these 
-        dvi = d_v_od %>% select(i) %>% mutate(drop = i %in% names(zerolevs))
-        d_v_od = d_v_od[!dvi$drop,]
+        # Drop any observations in validation set which are in these
+        dvi = as.character(unclass(d_v_od[,i])[[1]]) %in% names(zerolevs)
+        d_v_od = d_v_od[!dvi,]
         
       }
       
@@ -170,23 +180,23 @@ for(carrier in use_carriers){
         
         # Eliminate any interactions or variables which are not important
         # summary.aov(m_ols_fit_interax)
-        m_ols_step <- step(m_ols_fit_interax, direction = 'both')
+        # m_ols_step <- step(m_ols_fit_interax, direction = 'both')
         # summary.aov(m_ols_step)
         
         # Assess models without year
         if(length(pred_vars_noyr) > 0){
           use_formula_noyr = as.formula(paste0('AIR_TIME ~ (', paste(pred_vars_noyr, collapse = ' + '), ')^2'))
           m_ols_fit_noyr <- lm(use_formula_noyr, data = d_od)
-          m_ols_step_noyr <- step(m_ols_fit_noyr, direction = 'both')
+          # m_ols_step_noyr <- step(m_ols_fit_noyr, direction = 'both')
           # summary.aov(m_ols_step_noyr)
           
-          aic_compare <- AIC(m_ols_fit_interax, m_ols_fit_noyr, m_ols_step, m_ols_step_noyr)
+          aic_compare <- AIC(m_ols_fit_interax, m_ols_fit_noyr)#, m_ols_step, m_ols_step_noyr)
           
           m_ols_best_fit <- get(rownames(aic_compare)[which.min(aic_compare$AIC)])
           
         } else {
-          aic_compare <- AIC(m_ols_fit_interax, m_ols_step)
-          m_ols_best_fit <- get(rownames(aic_compare)[which.min(aic_compare$AIC)])
+          # aic_compare <- AIC(m_ols_fit_interax, m_ols_step)
+          m_ols_best_fit <- m_ols_fit_interax#get(rownames(aic_compare)[which.min(aic_compare$AIC)])
         }
         
         # Summarize
@@ -281,3 +291,4 @@ for(carrier in use_carriers){
     
   } # End carrier loop ----
   
+} # End loop over validation options 

@@ -57,12 +57,36 @@ if(!file.exists(file.path(sharedloc, 'ASQP_2015-2018.RData'))){
   # Save full cross year for easier setup, and also save test/trainign validation set
   save('d_crossyear', file = file.path(sharedloc, 'ASQP_2015-2018.RData'))
   
-  samprow <- sample(1:nrow(d_crossyear), nrow(d_crossyear)*.2, replace = F)
+  # Stratify random sampling to ensure all Carrier x O_D are represented in training set
+  d_s <- d_crossyear %>%
+    mutate(rowN = 1:nrow(d_crossyear),
+           c_od = paste(CARRIER, O_D)) %>%
+    select(rowN, c_od, CARRIER, O_D)
+  
+  samprow <- vector()
+  
+  for(i in unique(d_s$c_od)){
+    d <- d_s %>%
+      filter(c_od == i)
+    
+    # Is it divisible by 5? Eliminates any carrier x o_d combinations between 0 and 4 flights across all 4 years. 
+    if(nrow(d) / 5 > 0){
+      samprow_c_od <- sample(d$rowN, nrow(d)*.2, replace = F)
+      samprow <- c(samprow, samprow_c_od)
+    } 
+    
+  }
+  
+  # samprow <- sample(1:nrow(d_crossyear), nrow(d_crossyear)*.2, replace = F) For unstratified sampling
   
   d_crossyear_validate <- d_crossyear[samprow,]
   d_crossyear_train <- d_crossyear[!rownames(d_crossyear) %in% samprow,]
   
-  save(list = c('d_crossyear_validate', 'd_crossyear_train'), file = file.path(sharedloc, 'ASQP_2015-2018_train.RData'))
+  # ensure sampling number adds up
+  stopifnot(nrow(d_crossyear_validate) == length(samprow))
+  stopifnot(nrow(d_crossyear_validate) + nrow(d_crossyear_train) == nrow(d_crossyear))
+  
+  save(list = c('d_crossyear_validate', 'd_crossyear_train', 'samprow'), file = file.path(sharedloc, 'ASQP_2015-2018_train.RData'))
   
   # Prep 2019 test data
   load(file.path(sharedloc, 'ASQP_2019.RData'))
@@ -71,6 +95,10 @@ if(!file.exists(file.path(sharedloc, 'ASQP_2015-2018.RData'))){
     select(names(d_19_1)[names(d_19_1) %in% names(d_19_2)])
   
   d_19 = full_join(d_19_1, d_19_2)
+  
+  d_19 <- d_19 %>%
+    filter(!is.na(AIR_TIME) & CARRIER %in% use_carriers) %>%
+    mutate(O_D = paste(ORIGIN, DEST, sep = "-"))
   
   save(list = c('d_19'), file = file.path(sharedloc, 'ASQP_2019_validate.RData'))
   
