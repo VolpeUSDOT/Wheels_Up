@@ -1,5 +1,5 @@
 ---
-title: "BTS Flight Time Regression Results -- 1 year"
+title: "BTS Flight Time Regression Results"
 output: 
   html_document:
     self_contained: true
@@ -15,13 +15,23 @@ output:
 
 # Overview 
 
-Summary of results from models of all reportable flights in 2018. 
+Summary of results from models of all reportable flights from 2015 - 2018. 
 
-The modeling framework is as follows:
+Two modeling approaches were taken. First, individually modeling each flight segment (origin-destination, O-D) by each carrier (C):
+
 $$
-AIRTIME_{CARRIER_{O-D}} = \beta1_{CARRIER_{O-D}} MONTH_{CARRIER_{O-D}} + \beta2_{CARRIER_{O-D}}DAY_{CARRIER_{O-D}} + \beta3_{CARRIER_{O-D}}DEP_{CARRIER_{O-D}}
+AIRTIME_{C_{O-D}} = \beta1_{C_{O-D}} Year_{C_{O-D}} + \beta2_{C_{O-D}} MONTH_{C_{O-D}} + \beta3_{C_{O-D}}DAY_{C_{O-D}} + \beta4_{C_{O-D}}DEP_{C_{O-D}}
 $$
-For each carrier, each origin-destination flight segment was modeled as a linear combination of month of year, day of week, and departure time block (hour of day). These are the variables that an air carrier would know when scheduling a flight, and thus what would be available to provide a prediction of estimated flight time for a consumer at the time of booking. Two- and three-way interactions were included if they improved model fit by AIC.
+
+For each carrier, each origin-destination flight segment was modeled as a linear combination of month of year, day of week, and departure time block (hour of day). These are the variables that an air carrier would know when scheduling a flight, and thus what would be available to provide a prediction of estimated flight time for a consumer at the time of booking. Two- and three-way interactions were included if they improved model fit by AIC. The best fit model varied by flight segment and carrier, with inclusion of interactions determined by AIC.
+
+Second, individually modeling each flight segment (origin-destination, O-D) across carrier:
+
+$$
+AIRTIME_{O-D} = \beta1_{O-D} CARRIER_{O-D} + \beta2_{O-D} YEAR_{O-D} + \beta3_{O-D} MONTH_{O-D} + \beta4_{O-D}DAY_{O-D} + \beta5_{O-D}DEP_{O-D}
+$$
+
+This approach differs from the first by including all flights on a particular flight segment regardless of carrier. The carrier-specific effects are then an offset from the overall estiamte, with two- and three-way interactions again included to the extent that they improved model fit. 
 
 Additional variables to consider could be predictable climatological features (El Nino) or expected airport congestion. 
 
@@ -74,6 +84,13 @@ for(i in 1:length(ols_res)){
   
   d <- rbind(d, dx)
 }
+
+d_crossyear <- read_csv(file.path(resultsloc, '1O_D_Crossyear_OLS_Summary.csv'))
+d_crossyear <- d_crossyear %>%
+  filter(O_D != '') %>%
+  mutate(Origin = substr(O_D, 1, 3),
+         Destination = substr(O_D, 5, 7))
+
 ```
 
 
@@ -94,7 +111,7 @@ kable(d_carrier,
 
 ```
 
-
+## Airport summary -- Model within carrier
 
 ```{r airport_summary}
 d_airport <- d %>%
@@ -114,4 +131,24 @@ datatable(d_airport,
       caption = "Summary of flight predictability by origin airport in 2018. Airports with at least 100 departing flight segments shown by default." ) 
 
 # TODO: load full airport names for hover over
+```
+
+## Airport summary -- Model across carrier
+
+```{r airport_summary_across}
+d_airport <- d_crossyear %>%
+  group_by(Origin) %>%
+  summarize(N_flight_segments = n(),
+            N_estimated = sum(!is.na(r2)),
+            R2_median = round(median(r2, na.rm=T), 3),
+            R2_max = round(max(r2[r2 != 1], na.rm = T), 3),
+            Pct_High_R2 = round(100*sum(!is.na(r2) & r2 > 0.5) / length(r2), 2))
+
+datatable(d_airport,
+          rownames = F,
+          filter = 'top',
+          options = list(order = list(list(3, 'desc')),
+                        searchCols = list(NULL, list(search = '100 ... 1000'), NULL, NULL, NULL, NULL, NULL),
+                         pageLength = 10),
+      caption = "Summary of flight predictability by origin airport, across years and modeled across carriers. Airports with at least 100 departing flight segments shown by default." ) 
 ```

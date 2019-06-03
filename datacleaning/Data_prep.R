@@ -92,7 +92,6 @@ d_19_1 <- read_csv(file.path(sharedloc, new_data[grep('2019_1', new_data)]))
 d_19_2 <- read_csv(file.path(sharedloc, new_data[grep('2019_2', new_data)]))
 
 # Change naming convention to match already prepared data: All caps, with underscore to separate names
-oldnames <- names(d_19_1)
 
 nameconv <- function(oldnames){
   # gsub: Find single uppercase letters followed by lowercase letters, replace with the same thing preceded by an underscore 
@@ -104,6 +103,8 @@ nameconv <- function(oldnames){
   # Fix Day of week and day of month
   nn <- gsub('DAYOF', 'DAY_OF', nn)
   nn <- gsub('OFWEEK', 'OF_WEEK', nn)
+  # Change Reporting airline to carrier to match 
+  nn[nn == 'REPORTING_AIRLINE'] = 'CARRIER'
   nn
 }
   
