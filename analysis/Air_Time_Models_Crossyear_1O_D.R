@@ -67,6 +67,8 @@ for(VALIDATION in VALIDATION_opts){
   }
   # Funtion to match factors levesl between training and validation data sets. Add empty factor levels if necessary 
   levadd <- function(factor_var, test, train){
+    class(test) = 'data.frame'
+    class(train) = 'data.frame'
     tlev <- levels(test[,factor_var])
     addlev <- levels(train[,factor_var])[!levels(train[,factor_var]) %in% tlev]
     levels(test[,factor_var]) = c(levels(test[,factor_var]), addlev)
@@ -88,7 +90,7 @@ for(VALIDATION in VALIDATION_opts){
   
   if(!file.exists(file.path(saveloc, "1O_D_log.txt"))){
     writeLines(c(""), file.path(saveloc, "1O_D_log.txt"))    
-    write.table(data.frame(O_D = '', N = '', Obs_Mean = '',
+    write.table(data.frame(O_D = '', N = '', N_carriers = '', Obs_Mean = '',
                            Obs_SD = '', 
                            N_valid = '', Obs_Mean_valid = '', Obs_SD_valid = '',
                            r2 = '', RMSE = '', MAE = '',
@@ -98,12 +100,16 @@ for(VALIDATION in VALIDATION_opts){
     
   } else {
     # Skip completed models
-    completed <- read.table(file.path(saveloc, '1O_D_log.txt'), header = F)
-    O_D <- O_D[!O_D %in% completed[,3]]  
+    completed <- read.csv(file.path(saveloc, paste0(Analysis, ".csv")), header = T)
+    
+    O_D <- O_D[!O_D %in% as.character(completed$O_D)]  
   }
   # mod_list = list()
   
   foreach(od = O_D, .packages = 'dplyr') %dopar% {
+    
+    # for(od in O_D[4555:4572]){ # Manual loop for debugging
+    #   cat(od, '\n')
     # od = as.character(O_D[1])
     freem = paste(system("free -g | awk '{print $7}'", intern = T), collapse = '')
     
@@ -162,11 +168,11 @@ for(VALIDATION in VALIDATION_opts){
     factorvars = names(vars[which(vars == 'factor')])
     
     for(i in factorvars) { 
+      d_od[,i] = levadd(factor_var = i, d_od, d_v_od) 
       zerolevs <- which(table(d_od[,i]) == 0)
       # Drop any observations in validation set which are in these
       dvi = as.character(unclass(d_v_od[,i])[[1]]) %in% names(zerolevs)
       d_v_od = d_v_od[!dvi,]
-      
     }
     
     if(length(pred_vars) > 0){
