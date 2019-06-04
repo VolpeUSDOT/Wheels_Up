@@ -29,8 +29,8 @@ system(paste(
 ))
 
 system(paste(
-  'aws s3 cp', paste0('s3://', bucket, '/to_s3/results.zip'),
-  file.path(sharedloc, 'Sync', sync_dir, 'results.zip')
+  'aws s3 cp', paste0('s3://', bucket, '/to_s3/Data.zip'),
+  file.path(sharedloc, 'Sync', sync_dir, 'Data.zip')
   ))
 
 # Get OLS summary results -- summary csv first
@@ -61,3 +61,7 @@ olsget('OLS_Crossyear_1O_D')
 olsget('OLS_Crossyear_1Carrier_Validate_Internal')
 
 olsget('OLS_Crossyear_1Carrier_Validate_2019', 'Validate_2019.csv')
+
+olsget('OLS_Crossyear_1O-D_Validate_Internal', 'Validate_Internal.csv')
+
+olsget('OLS_Crossyear_1O-D_Validate_2019', 'Validate_2019.csv')

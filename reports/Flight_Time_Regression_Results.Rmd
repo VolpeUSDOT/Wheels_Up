@@ -4,7 +4,7 @@ output:
   html_document:
     self_contained: true
     toc: true
-    toc_depth: 1
+    toc_depth: 2
     toc_float:
       collapsed: true
       smooth_scroll: false
@@ -31,7 +31,7 @@ $$
 AIRTIME_{O-D} = \beta1_{O-D} CARRIER_{O-D} + \beta2_{O-D} YEAR_{O-D} + \beta3_{O-D} MONTH_{O-D} + \beta4_{O-D}DAY_{O-D} + \beta5_{O-D}DEP_{O-D}
 $$
 
-This approach differs from the first by including all flights on a particular flight segment regardless of carrier. The carrier-specific effects are then an offset from the overall estiamte, with two--way interactions again included. 
+This approach differs from the first by including all flights on a particular flight segment regardless of carrier. The carrier-specific effects are then an offset from the overall estimate, with two--way interactions again included. 
 
 <!-- Additional variables to consider could be predictable climatological features (El Nino) or expected airport congestion. -->
 
@@ -42,7 +42,27 @@ In order to validate a predictive model, a model has to be fit using one portion
 - Internal validation: Set aside a stratified random sample of flights within each O-D pair flown by each carrier. Use 80% of the flight data to train the model, and the remaining 20% is set aside to test the model.
 - External validation: Use the complete 2015-2018 data to fit the model. Use available flights from 2019 to test the model. 
 
-Currently, only January and Februrary flight data are available for 2019 ((Transtats)[https://www.transtats.bts.gov/Tables.asp?DB_ID=120&DB_Name=Airline On-Time Performance Data&DB_Short_Name=On-Time]).  
+Currently, only January and February flight data are available for 2019 ((Transtats)[https://www.transtats.bts.gov/Tables.asp?DB_ID=120&DB_Name=Airline On-Time Performance Data&DB_Short_Name=On-Time]).  
+
+The most important metric of model goodness-of-fit for this project is how close the model predictions are to the observed air time. We use mean absolute error (MAE) to show how close model predictions are in minutes to observed air times for a given O-D pair. MAE is calculated as follows:
+
+$$
+MAE = \frac{ \sum^{n}_{i=1}|\hat{y}_i - y_i | }{n}
+$$
+For $n$ observations of an O-D pair $i$, where $y_i$ is the observed air time and $\hat{y}_i$ is the predicted flight time. In addition, it is useful to report the coefficient of determination for a model, or $r^2$. Unlike MAE, which is reported in the original unit of minutes of air time, $r^2$ ranges from 0-1 and reflects the proportion of the variation in air time which is explained by the model. For this project, $r^2$ is useful for comparing across models, but MAE is most relevant for the determination of feasibility of flight time reporting. 
+
+## Model summary
+
+Combining the two modeling approaches (O-D within carrier and O-D across carriers) and two validation approaches (internal and external) results in the following combinations of models.
+
+| Model Approach | Validation Approach | Training Data Set | Test Data Set | Total Number of Models |
+|----------------|---------------------|-------------------|---------------|------------------------|
+| O-D Within Carrier | Internal | 2015-2018, 80% of data () | 2015-2018, 20% of data |              |
+| O-D Within Carrier | 2019 | 2015-2018, 100% of data () | 2019 available data |                    |
+| O-D Across Carrier | Internal | 2015-2018, 80% of data () | 2015-2018, 20% of data |              |
+| O-D Across Carrier | 2019 | 2015-2018, 100% of data () | 2019 available data |                    |
+
+
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = F, warning=F, message=F)
@@ -61,6 +81,7 @@ resultsloc = "//vntscex.local/DFS/Projects/PROJ-OR02A2/SDI/BTS_Flight_performanc
 
 ```
 
+<!--
 TODO:
 
 - Summarize n flight segments, r2 distribution by carrier
@@ -70,29 +91,72 @@ TODO:
 - R2 by N, R2 by mean flight time, and r2 by sd flight time plots
 
 - Table of most and least predictable flights
+-->
 
 # Summary tables 
 
-The following table summarizes the predictability of flights by carrier. For each carrier, the number of unique flight segments (origin-destination pairs) is provided. Not all flight segments could be reliably modeled; for instance, American flew only a single flight between DCA and Atlanta in 2018 (on 2018-12-23, at 9pm). With only a single value for this combination of carrier and origin-destination pair, the current modeling framework does not produce an estimate for this flight segment.
+The following table summarizes the predictability of flights. For the O-D within carrier approach, we report the total number of unique flight segments (origin-destination pairs) modeled, as well as the MAE and $r^2$ for across all flights for that carrier. Not all flight segments could be reliably modeled; for instance, American flew only a single flight between DCA and Atlanta in 2018 (on 2018-12-23, at 9pm). With only a single value for this combination of carrier and origin-destination pair, the current modeling framework does not produce an estimate for this flight segment.
 
-A hierarchical mixed effect model would produce an estimate for such a flight segment, by pooling information from other carrier flying the same route. However, we found these models to have difficulty converging using a Monte Carlo Markov Chain approach, so have elected to use the ordinary least squares regression approach, meaning each carrier x origin-destination pair is modeled separately.
+For both approaches (O-D within carrier and O-D across carrier), we summarize the model perfromance by MAE and $r^2$ for each airport. A Tableau dashboard will provide more complete exploration of these results.
 
+```{r prep}
 
-```{r carr_fl_prep}
-ols_res <- dir(file.path(resultsloc, 'OLS_2018'))
+valid_type = c('Internal', '2019')
 
-d <- vector()
-for(i in 1:length(ols_res)){
-  dx <- read.csv(file.path(resultsloc, 'OLS_2018', ols_res[i]))
-  carrier = substr(ols_res[i], 1, 2)
-  dx <- data.frame(carrier, dx)
-  dx <- dx %>%
-    filter(O_D != '') %>%
-    mutate(Origin = substr(O_D, 1, 3),
-           Destination = substr(O_D, 5, 7))
-  
-  d <- rbind(d, dx)
-}
+for(within_carr_valid in valid_type){
+  ols_res <- dir(file.path(resultsloc, paste0('1Carrier_Crossyear_Validate_', within_carr_valid)))
+
+  fn = file.path(resultsloc, paste0('1Carrier_Crossyear_Validate_', within_carr_valid, '.csv'))
+  if(!file.exists(fn)){
+    d <- vector()
+    for(i in 1:length(ols_res)){
+      dx <- read.csv(file.path(resultsloc, paste0('1Carrier_Crossyear_Validate_', within_carr_valid), ols_res[i]))
+      carrier = substr(ols_res[i], 1, 2)
+      dx <- data.frame(carrier, dx)
+      dx <- dx %>%
+        filter(O_D != '') %>%
+        mutate(Origin = substr(O_D, 1, 3),
+               Destination = substr(O_D, 5, 7))
+      
+      d <- rbind(d, dx)
+    }
+    
+    assign(paste0('d_within_', within_carr_valid), d)
+    
+    write.csv(d, file = fn, row.names = F)
+    } else {
+      read.csv(fn)
+      assign(paste0(d, '_within', within_carr), d)
+    }
+  }
+
+for(across_carr_valid in valid_type){
+  ols_res <- dir(file.path(resultsloc, paste0('1O-D_Crossyear_Validate_', across_carr_valid)))
+
+  fn = file.path(resultsloc, paste0('1O-D_Crossyear_Validate_', across_carr_valid, '.csv'))
+  if(!file.exists(fn)){
+    d <- vector()
+    for(i in 1:length(ols_res)){
+      dx <- read.csv(file.path(resultsloc, paste0('1O-D_Crossyear_Validate_', across_carr_valid), ols_res[i]))
+      carrier = substr(ols_res[i], 1, 2)
+      dx <- data.frame(carrier, dx)
+      dx <- dx %>%
+        filter(O_D != '') %>%
+        mutate(Origin = substr(O_D, 1, 3),
+               Destination = substr(O_D, 5, 7))
+      
+      d <- rbind(d, dx)
+    }
+    
+    assign(paste0('d_within_', within_carr_valid), d)
+    
+    write.csv(d, file = fn, row.names = F)
+    } else {
+      read.csv(fn)
+      assign(paste0(d, '_within', within_carr), d)
+    }
+  }
+
 
 d_crossyear <- read_csv(file.path(resultsloc, '1O_D_Crossyear_OLS_Summary.csv'))
 d_crossyear <- d_crossyear %>%
