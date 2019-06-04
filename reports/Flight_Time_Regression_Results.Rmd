@@ -55,19 +55,27 @@ For $n$ observations of an O-D pair $i$, where $y_i$ is the observed air time an
 
 Combining the two modeling approaches (O-D within carrier and O-D across carriers) and two validation approaches (internal and external) results in the following combinations of models.
 
-| Model Approach     | Validation Approach | Training Data Set                     | Test Data Set                        | Total Number of Models |
-|--------------------|---------------------|---------------------------------------|--------------------------------------|------------------------|
-| O-D Within Carrier | Internal            | 2015-2018, 80% of data (17 M flights) | 2015-2018, 20% of data (4 M flights) |     10,372             |
-| O-D Within Carrier | 2019                | 2015-2018, 100% of data (21 M flights)| 2019 available data (861,623 flights)|     10,372             |
-| O-D Across Carrier | Internal            | 2015-2018, 80% of data (17 M flights) | 2015-2018, 20% of data (4 M flights) |      5,101             |
-| O-D Across Carrier | 2019                | 2015-2018, 100% of data (21 M flights)| 2019 available data (861,623 flights)|      5,101             |
+| Model Approach     | Validation Approach | Training Data Set                        | Test Data Set                          | Total Number of Models |
+|--------------------|---------------------|------------------------------------------|----------------------------------------|------------------------|
+| O-D Within Carrier | Internal            | 2015-2018, 80% of data<br>17.5 M flights | 2015-2018, 20% of data<br>4.4 M flights|     10,372             |
+| O-D Within Carrier | 2019                | 2015-2018, 100% of data<br>21.9 M flights| 2019 available data<br>861,623 flights |     10,372             |
+| O-D Across Carrier | Internal            | 2015-2018, 80% of data<br>17.5 M flights | 2015-2018, 20% of data<br>4.4 M flights|      5,101             |
+| O-D Across Carrier | 2019                | 2015-2018, 100% of data<br>21.9 M flights| 2019 available data<br>861,623 flights |      5,101             |
 
-The O-D within carrier approach yeilds more total models because multiple carriers fly the same O-D flight segment, for 2,779 of the 5,101 segments. Note that only flight segments which appeared in the 2018 data were included; thus, flight segments which were only flown in 2015 but not in 2018 for example would have been excluded.
+The O-D within carrier approach yields more total models because multiple carriers fly the same O-D flight segment, for 2,779 of the 5,101 segments. Note that only flight segments which appeared in the 2018 data were included; thus, flight segments which were only flown in 2015 but not in 2018 for example would have been excluded.
 
 <!-- 
 summary(table(d_within_Internal$O_D) == 1) # to see how many flight segments are flown by just a single carrier
 load(file.path(sharedloc, 'ASQP_2019_validate.RData')); format(nrow(d_19), big.mark = ',') # to look at 2019 data used to date
+load(file.path(sharedloc, 'ASQP_2015-2018_train.RData')); 
+format(nrow(d_crossyear_train), big.mark = ',')
+# "17,532,876"
+format(nrow(d_crossyear_validate), big.mark = ',')
+# "4,378,035"
+format(sum(nrow(d_crossyear_validate), nrow(d_crossyear_train)), big.mark = ',')
+# "21,910,911"
 -->
+
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = F, warning=F, message=F)
@@ -85,20 +93,6 @@ sharedloc = "//vntscex.local/DFS/Projects/PROJ-OR02A2/SDI/BTS_Flight_performance
 resultsloc = "//vntscex.local/DFS/Projects/PROJ-OR02A2/SDI/BTS_Flight_performance/Results"
 
 ```
-
-<!--
-TODO:
-- Summarize n flight segments, MAE and r2 distribution by carrier
-- Summarize n flights, MAE and r2 distribution by origin and destination
-- R2 by N, R2 by mean flight time, and r2 by sd flight time plots
-- Table of most and least predictable flights
--->
-
-# Summary tables 
-
-The following table summarizes the predictability of flights. For the O-D within carrier approach, we report the total number of unique flight segments (origin-destination pairs) modeled, as well as the MAE and $r^2$ for across all flights for that carrier. Not all flight segments could be reliably modeled; for instance, American flew only a single flight between DCA and Atlanta in 2018 (on 2018-12-23, at 9pm). With only a single value for this combination of carrier and origin-destination pair, the current modeling framework does not produce an estimate for this flight segment.
-
-For both approaches (O-D within carrier and O-D across carrier), we summarize the model perfromance by MAE and $r^2$ for each airport. A Tableau dashboard will provide more complete exploration of these results.
 
 ```{r prep}
 
@@ -150,6 +144,27 @@ for(across_carr_valid in valid_type){
   }
 
 ```
+
+<!--
+TODO:
+- R2 by N, R2 by mean flight time, and r2 by sd flight time plots
+- Table of most and least predictable flights
+-->
+
+## Conclusions
+
+- The relatively simple models here demonstrate that carriers can be reasonably expected to predict air times within a 10 minute range for the majority of flights. The median error across all flights predicted in 2019 was `r round(median(d_across_2019$MAE, na.rm=T), 2)` minutes (O-D across carriers, validation on 2019 data). `r round(d_across_2019 %>% filter(!is.na(MAE)) %>% summarize(pct_within_10 = 100*sum(MAE <= 10)/n()), 1)`% of flights were predicted within a 10 minute margin of error. 
+- Validation on 2019 data shows higher MAE compared to internal validation, which is expected. For example, the median MAE for American Airlines flights when validated internally to the 2015-2018 data was 6.21 minutes, for 842 O-D pairs. The median MAE for American Airlines flights when validated on the 2019 data was 7.39 minutes, for 662 O-D pairs. The further into the future the flight time is predicted, the greater the error in the prediction. 
+- Median $r^2$ was around 0.3, which is not high. A substantial degree of variation in flight times is not captured in these models, which is again to be expected. Incorporating weather variables could substantially increase the $r^2$ for historical flight time models, but would not be useful for predicting flight time at the time of booking (except for consumers who book within a few days of departure).
+- Modeling flight time across carriers rather than within each carrier yielded better performance (median MAE across = `r round(median(d_across_2019$MAE, na.rm=T), 2)` minutes; median MAE within = `r round(median(d_within_2019$MAE, na.rm=T), 2)` minutes). This indicates that there is useful information from other carriers flying the same flight segment when predicting flight time for a specific flight.
+
+
+# Summary tables 
+
+The following table summarizes the predictability of flights. For the O-D within carrier approach, we report the total number of unique flight segments (origin-destination pairs) modeled, as well as the MAE and $r^2$ for across all flights for that carrier. Not all flight segments could be reliably modeled; for instance, American flew only a single flight between DCA and Atlanta in 2018 (on 2018-12-23, at 9pm). With only a single value for this combination of carrier and origin-destination pair, the current modeling framework does not produce an estimate for this flight segment.
+
+For both approaches (O-D within carrier and O-D across carrier), we summarize the model performance by MAE and $r^2$ for each airport. A Tableau dashboard will provide more complete exploration of these results.
+
 
 ## O-D Within Carrier
 
