@@ -23,15 +23,31 @@ Sys.setenv("AWS_ACCESS_KEY_ID" = as.character(key_info$Access.key.ID),
 sync_dir <- paste0('Sync_', Sys.Date())
 dir.create(file.path(sharedloc, 'Sync', sync_dir))
 
+# Get the latest date sync
+bucket_dirs = system(paste('aws s3 ls', paste0('s3://', bucket, '/')), intern = T)
+spl = strsplit(bucket_dirs[grep('PRE', bucket_dirs)], " +")
+dirs = unlist(lapply(spl, function(x) x[[3]]))
+dirs = sub("\\/", "", dirs)
+sync_from_EC2_dirs = dirs[grep("\\d{4}-\\d{2}-\\d{2}", dirs)]
+latest_sync_from_EC2 = sync_from_EC2_dirs[which(as.Date(sync_from_EC2_dirs) == max(as.Date(sync_from_EC2_dirs)))] 
+
 system(paste(
-  'aws s3 cp', paste0('s3://', bucket, '/to_s3/Wheels_Up_Code_Update.zip'),
+  'aws s3 cp', paste0('s3://', bucket, '/', latest_sync_from_EC2, '/Wheels_Up_Code_Update.zip'),
   file.path(sharedloc, 'Sync', sync_dir, 'Wheels_Up_Code.zip')
 ))
 
 system(paste(
-  'aws s3 cp', paste0('s3://', bucket, '/to_s3/Data.zip'),
+  'aws s3 cp', paste0('s3://', bucket,  '/', latest_sync_from_EC2, '/results.zip'),
+  file.path(sharedloc, 'Sync', sync_dir, 'results.zip')
+))
+
+
+system(paste(
+  'aws s3 cp', paste0('s3://', bucket,  '/', latest_sync_from_EC2, '/Data.zip'),
   file.path(sharedloc, 'Sync', sync_dir, 'Data.zip')
   ))
+
+
 
 # Get OLS summary results -- summary csv first
 olsget <- function(Analysis, summary_file_namepart = 'Validate_Internal.csv'){
