@@ -41,6 +41,8 @@ system(paste(
   file.path(sharedloc, 'Sync', sync_dir, 'results.zip')
 ))
 
+###
+
 
 system(paste(
   'aws s3 cp', paste0('s3://', bucket,  '/', latest_sync_from_EC2, '/Data.zip'),

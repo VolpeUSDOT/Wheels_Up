@@ -26,7 +26,8 @@ setwd(codeloc)
 VALIDATION_opts = c('Internal', '2019') # VALIDATION ='Internal' # Two options for validation. One, use a training/test dataset and validate internally 
 for(VALIDATION in VALIDATION_opts){
   # <<><<><<>
-  
+  starttime <- Sys.time()
+  cat(rep("<>", 20), "\n Starting", VALIDATION, as.character(round(starttime)), '\n\n')
   Analysis = paste0('1O-D_Congestion_xgB_Validate_', VALIDATION)
   
   saveloc = file.path(resultsloc, Analysis); system(paste('mkdir -p', saveloc))
@@ -100,12 +101,11 @@ for(VALIDATION in VALIDATION_opts){
   # Loop over O_D ----
   
   O_D = unique(d_train$O_D) # 5,101 models
-  starttime <- Sys.time()
   
   avail.cores <- parallel::detectCores()
-  simul.models = 16 # range from 1 to max of available cores. At 1, will use all cores for each model individually (non-parallel)
-  cl <- makeCluster(avail.cores/simul.models) # For xgBoost, try nthreads = 4 for each individual model, parallelize 
-  registerDoParallel(cl)
+  simul.models = 1 # range from 1 to max of available cores. At 1, will use all cores for each model individually (non-parallel)
+  # cl <- makeCluster(simul.models) # For xgBoost, try nthreads = 4 for each individual model, parallelize. Didn't work, so simply running in sequence
+  # registerDoParallel(cl)
   
   # xgBoost notes:
   # - objective will be reg:linear
@@ -163,10 +163,11 @@ for(VALIDATION in VALIDATION_opts){
     O_D <- O_D[!O_D %in% as.character(completed$O_D)]  
   }
   
-  foreach(od = O_D, .packages = 'dplyr') %dopar% {
-    
-    # for(od in O_D[4555:4572]){ # Manual loop for debugging
-    #   cat(od, '\n')
+  #foreach(od = O_D, .packages = c('dplyr', 'xgboost')) %dopar% {
+  
+  for(od in O_D){ 
+    # Manual loop for debugging
+    #    cat(od, '\n')
     # od = as.character(O_D[1])
     freem = paste(system("free -g | awk '{print $7}'", intern = T), collapse = '')
     
@@ -217,7 +218,8 @@ for(VALIDATION in VALIDATION_opts){
     d_v_od = d_v_od %>%
       mutate_at(factorvars, function(x) as.factor(as.character(x)))
     
-    # Now, look to see if there are factor levels present in training whcih are not in validation. Add empty levels to the validation data variable. Otherwise, prediction fails (requires same set of levels for factors)
+    # Now, look to see if there are factor levels present in training whcih are not in validation. Add empty levels to the validation data variable. Otherwise, prediction fails (requires same set of levels for factors).
+    # Also need the level labels to be in the same order. 
     for(i in factorvars) { 
       d_v_od[,i] = levadd(factor_var = i, d_v_od, d_od) 
     }
@@ -229,21 +231,38 @@ for(VALIDATION in VALIDATION_opts){
     if(!identical(sort(levels(d_od$DEP_TIME_BLK)), sort(levels(d_v_od$DEP_TIME_BLK)))){
       cat('Check factor levels in', od, '\n')}
     
-    
-    if(length(pred_vars) > 0){
+    # For xgboost, create model matrix with dummy variables for each level of each factor variable. + 0 Eliminates intercept. Loop over each factor variable, because all the adding and deleting levels can put levels out of order. So do each factor separately and then put them together.
+    if(nrow(d_od) > 1){
       
-      # For xgboost, create model matrix with dummy variables for each level of each factor variable. + 0 Eliminates intercept
-      d_od_train <- model.matrix(~ 0 + .  , data = d_od[pred_vars])
+      mmi <- vector(length = nrow(d_od))
+      for(i in pred_vars[pred_vars %in% factorvars]) { 
+        mmi <- data.frame(mmi, model.matrix(~ 0 + ., data = d_od[i]))
+      }
+      # Add non-factor variables (just congestion now)
+      for(i in pred_vars[!pred_vars %in% factorvars]) { 
+        mmi <- data.frame(mmi, model.matrix(~ 0 + ., data = d_od[i]))
+      }
+      d_od_train <- as.matrix(mmi[-1])
+      
       d_od_label <- d_od$AIR_TIME
       dtrain = xgb.DMatrix(data = d_od_train, label = d_od_label)
       
-      d_v_od_test <- model.matrix(~ 0 + .  , data = d_v_od[pred_vars])
-      # Order identically to d_od_train
-      d_v_od_test <- d_v_od_test[,colnames(d_od_train)]
-      stopifnot(identical(colnames(d_od_train), colnames(d_v_od_test)))
-      d_v_od_label <- d_v_od$AIR_TIME
-      
-      dtest = xgb.DMatrix(data = d_v_od_test, label = d_v_od_label)    
+      if(nrow(d_v_od) > 1){
+        mmi <- vector(length = nrow(d_v_od))
+        for(i in pred_vars[pred_vars %in% factorvars]) { 
+          mmi <- data.frame(mmi, model.matrix(~ 0 + ., data = d_v_od[i]))
+        }
+        # Add non-factor variables (just congestion now)
+        for(i in pred_vars[!pred_vars %in% factorvars]) { 
+          mmi <- data.frame(mmi, model.matrix(~ 0 + ., data = d_v_od[i]))
+        }
+        d_v_od_test <- as.matrix(mmi[-1])
+        
+        d_v_od_test <- d_v_od_test[,colnames(d_od_train)]
+        d_v_od_label <- d_v_od$AIR_TIME
+        
+        dtest = xgb.DMatrix(data = d_v_od_test, label = d_v_od_label)    
+      }
       
       m_xgb_fit <- xgboost(dtrain, params = xgb_params, 
                            nrounds = xgb_params$nrounds,
@@ -278,7 +297,7 @@ for(VALIDATION in VALIDATION_opts){
                     append = T)
         
       } else {
-        RMSE = MAE = NA
+        r2 = RMSE = MAE = NA
       }
       
       sumvals <- data.frame(O_D = od, N = nrow(d_od),
@@ -292,13 +311,12 @@ for(VALIDATION in VALIDATION_opts){
                             top_feature,
                             top_feature_gain,
                             Pred_vars = paste(pred_vars, collapse = " + "))
-      
     } else {
       sumvals <- data.frame(O_D = od, N = nrow(d_od),
                             N_Carriers = length(unique(d_od$CARRIER)),
                             Obs_Mean = mean(d_od$AIR_TIME),
                             Obs_SD = sd(d_od$AIR_TIME),
-                            N_valid = nrow(d_v_od), Obs_Mean_valid = mean(d_v_od$AIR_TIME), Obs_SD_valid = sd(d_v_od$AIR_TIME),
+                            N_valid = NA, Obs_Mean_valid = NA, Obs_SD_valid = NA,
                             r2 = NA, 
                             RMSE = NA,
                             MAE = NA,
@@ -306,6 +324,8 @@ for(VALIDATION in VALIDATION_opts){
                             top_feature_gain = NA,
                             Pred_vars = NA)
     }
+    # end check if nrow(d_od) > 1
+    
     write.table(sumvals,
                 row.names = F,
                 col.names = F,
@@ -313,11 +333,11 @@ for(VALIDATION in VALIDATION_opts){
                 sep = ',',
                 append = T)
     
-    rm(d_od, d_v_od, m_xgb_fit); gc()
+    suppressWarnings( rm(d_od, d_v_od, m_xgb_fit) ) ; gc(verbose = F) 
     # mod
   } # end dopar loop
   
-  stopCluster(cl); rm(cl, d_train, d_test, VALIDATION); gc()
+  # stopCluster(cl); rm(cl, d_train, d_test, VALIDATION); gc()
   
   endtime = Sys.time() - starttime
   elapsed_time = paste(round(endtime, 2), attr(endtime, 'units'))

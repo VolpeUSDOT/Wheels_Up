@@ -23,7 +23,7 @@ $$
 AIRTIME_{C_{O-D}} = \beta1_{C_{O-D}} Year_{C_{O-D}} + \beta2_{C_{O-D}} MONTH_{C_{O-D}} + \beta3_{C_{O-D}}DAY_{C_{O-D}} + \beta4_{C_{O-D}}DEP_{C_{O-D}}
 $$
 
-For each carrier, each origin-destination flight segment was modeled as a linear combination of month of year, day of week, and departure time block (hour of day). These are the variables that an air carrier would know when scheduling a flight, and thus what would be available to provide a prediction of estimated flight time for a consumer at the time of booking. Two-way interactions were included. 
+For each carrier, each origin-destination flight segment was modeled as a linear combination of month of year, day of week, and departure time block (hour of day, with midnight to 5am as one time block). These are the variables that an air carrier would know when scheduling a flight, and thus what would be available to provide a prediction of estimated flight time for a consumer at the time of booking. Two-way interactions were included. 
 
 Second, individually modeling each flight segment (origin-destination, O-D) across carrier:
 
@@ -33,7 +33,9 @@ $$
 
 This approach differs from the first by including all flights on a particular flight segment regardless of carrier. The carrier-specific effects are then an offset from the overall estimate, with two--way interactions again included. 
 
-<!-- Additional variables to consider could be predictable climatological features (El Nino) or expected airport congestion. -->
+Additionally, we tested how adding congestion at the airport and hour level improve model performance. For this, we calculated the count of flights departing or arriving at each of the 320 airports included in these analyses, for each year, month, day of week, and time block (hour of day, with midnight to 5am as one time block). Within each airport and year, we then calculated a relative congestion, as the specific number of flights within a time block divided by the maximum number of flights for that airport and year. This provide a measure of proportionally how busy the origin and destination airports were, relative to their maximum capacity at any point in the year. 
+
+Finally, we also tested a machine learning approach to flight time prediction. Similar to a linear regression approach, a matrix of predictors is fit to an target variable (flight time). The particular approach selected, extreme gradient boosting (XGBoost) is a decision-tree approach which has been highly effective at solving a number of data science problems, and used in a number of the studies reviewed in our Annotated Bibliography.
 
 ## Validation
 
@@ -145,6 +147,7 @@ for(across_carr_valid in valid_type){
 
 ```
 
+
 <!--
 TODO:
 - R2 by N, R2 by mean flight time, and r2 by sd flight time plots
@@ -158,6 +161,9 @@ TODO:
 - Median $r^2$ was around 0.3, which is not high. A substantial degree of variation in flight times is not captured in these models, which is again to be expected. Incorporating weather variables could substantially increase the $r^2$ for historical flight time models, but would not be useful for predicting flight time at the time of booking (except for consumers who book within a few days of departure).
 - Modeling flight time across carriers rather than within each carrier yielded better performance (median MAE across = `r round(median(d_across_2019$MAE, na.rm=T), 2)` minutes; median MAE within = `r round(median(d_within_2019$MAE, na.rm=T), 2)` minutes). This indicates that there is useful information from other carriers flying the same flight segment when predicting flight time for a specific flight.
 
+- **CONGESTION**
+
+- **XGBOOST**
 
 # Summary tables 
 
@@ -219,7 +225,7 @@ datatable(d_airport,
 
 ### External Validation (2019) summarized by carrier
 
-**Note** Need to check to concur that Virgin had no reportable flights in Jan-Feb 2019. 
+**Note** Virgin Atlantic (VX) merged with Alaskan Airlines in 2018, and thus had no reportable flights in 2019. 
 
 ```{r carr_summary2}
 d_carrier <- d_within_2019 %>%
@@ -317,6 +323,241 @@ datatable(d_airport,
       caption = "Summary of flight predictability by origin airport, for models across carriers, external validation on 2019 data. Airports with at least 100 departing flight segments shown by default. Sorted by median MAE, small to large." ) 
 
 ```
+
+
+
+
+
+
+
+# Additional analyses
+
+Two additional analyses are described here. First, relative congestion at each airport as an origin and destination was calculated by year, month, day of week, and time block. For 2019 data validation, the 2018 relative congestion values were used, sinc a complete year of data is needed to calculate relative congestion. Second, results from the machine learning approach, XGBoost, are prested and compared with the linear regression approaches.  
+
+## O-D Across Carrier, plus congestion
+
+```{r congprep}
+
+valid_type = c('Internal', '2019')
+
+for(across_carr_valid in valid_type){
+  ols_res <- dir(file.path(resultsloc, paste0('1O-D_Congestion_Validate_', across_carr_valid)))
+
+  fn = file.path(resultsloc, paste0('1O-D_Congestion_Validate_', across_carr_valid, '.csv'))
+  if(!file.exists(fn)){
+    d <- read.csv(file.path(resultsloc, paste0('1O-D_Congestion_Validate_', across_carr_valid), paste0('1O-D_Congestion_Validate_', across_carr_valid, '.csv')))
+    d <- d %>%
+      filter(O_D != '') %>%
+      mutate(Origin = substr(O_D, 1, 3),
+             Destination = substr(O_D, 5, 7))
+  
+    assign(paste0('d_across_cong_', across_carr_valid), d)
+    
+    write.csv(d, file = fn, row.names = F)
+    } else {
+      assign(paste0('d_across_cong_', across_carr_valid), read.csv(fn))
+      }
+  }
+
+```
+
+
+Compare to models without these two variables added, models without these variables performed substantially better. For flight segements which are flown less frequently, adding these variables induced substantial model overfitting, reducing the predictive power of the models.
+
+```{r cong_in_plot}
+
+d_cong <- d_across_Internal
+d_cong <- left_join(d_cong,
+                    d_across_cong_Internal %>% rename(MAE_cong = MAE) %>% select(O_D, MAE_cong)) %>%
+  mutate(high_flights = N > 1000)
+
+
+ggplot(d_cong, aes(x = MAE, y = MAE_cong)) + 
+  geom_point(alpha = 1/10, col = 'midnightblue') +
+  facet_wrap(~high_flights, scales = 'free_y') +
+  geom_abline(slope = 1, intercept = 0, lty = 3) +
+  theme_bw() +
+  ggtitle("MAE with congestion variables added, validation internally to 2015-2018 data. \n Separating O-D pairs with fewer or greater than 1,000 flight segments.")
+#
+# plot(d_across_Internal$MAE,
+#      d_across_cong_Internal$MAE,
+#      xlim = range(range(d_across_Internal$MAE, na.rm= T),range(d_across_cong_Internal$MAE, na.rm = T)),
+#      ylim = range(range(d_across_Internal$MAE, na.rm= T),range(d_across_cong_Internal$MAE, na.rm = T)))
+
+```
+
+### Congestion: Internal Validation by airport
+
+```{r airport_summary_in_cong}
+d_airport <- d_across_cong_Internal %>%
+  group_by(Origin) %>%
+  filter(!is.na(MAE)) %>%
+  summarize(N_flight_segments = n(),
+            N_estimated = sum(!is.na(r2)),
+            MAE_median = round(median(MAE, na.rm=T), 2),
+            MAE_min = round(min(MAE, na.rm = T), 2),
+            MAE_max = round(max(MAE, na.rm = T), 2),
+            R2_median = round(median(r2, na.rm=T), 3)
+            )
+
+datatable(d_airport,
+          rownames = F,
+          filter = 'top',
+          options = list(order = list(list(3, 'asc')),
+                        searchCols = list(NULL, list(search = '100 ... 1000'), NULL, NULL, NULL, NULL, NULL),
+                         pageLength = 10),
+      caption = "Summary of flight predictability by origin airport, for models across carriers including congestion at origin and destination, internal validation 2015-2018. Airports with at least 100 departing flight segments shown by default. Sorted by median MAE, small to large." ) 
+
+```
+
+### Congestion: External Validation by airport
+
+```{r airport_summary_ext_cong}
+d_airport <- d_across_cong_2019 %>%
+  group_by(Origin) %>%
+  filter(!is.na(MAE)) %>%
+  summarize(N_flight_segments = n(),
+            N_estimated = sum(!is.na(r2)),
+            MAE_median = round(median(MAE, na.rm=T), 2),
+            MAE_min = round(min(MAE, na.rm = T), 2),
+            MAE_max = round(max(MAE, na.rm = T), 2),
+            R2_median = round(median(r2, na.rm=T), 3)
+            )
+
+datatable(d_airport,
+          rownames = F,
+          filter = 'top',
+          options = list(order = list(list(3, 'asc')),
+                        searchCols = list(NULL, list(search = '50 ... 1000'), NULL, NULL, NULL, NULL, NULL),
+                         pageLength = 10),
+      caption = "Summary of flight predictability by origin airport, for models across carriers including congestion at origin and destination, external validation on 2019 data. Airports with at least 100 departing flight segments shown by default. Sorted by median MAE, small to large." ) 
+
+```
+
+Similarly to the internal validation, the use of the congestion variables substantially weakened the predictive ability of the models, with a few extreme cases. While a handful of O-D pairs were predicted better by models with congestion variables, in general these were worse than models with just the schedule variables.
+
+```{r cong_ext_plot}
+
+d_cong <- d_across_2019
+d_cong <- left_join(d_cong,
+                    d_across_cong_2019 %>% rename(MAE_cong = MAE) %>% select(O_D, MAE_cong)) %>%
+  mutate(high_flights = N > 1000)
+
+
+ggplot(d_cong, aes(x = MAE, y = MAE_cong)) + 
+  geom_point(alpha = 1/10, col = 'midnightblue') +
+  facet_wrap(~high_flights, scales = 'free_y') +
+  geom_abline(slope = 1, intercept = 0, lty = 3) +
+  theme_bw() +
+  ggtitle("MAE with congestion variables added, validation on 2019 data. \n Separating O-D pairs with fewer or greater than 1,000 flight segments.")
+#
+# plot(d_across_Internal$MAE,
+#      d_across_cong_Internal$MAE,
+#      xlim = range(range(d_across_Internal$MAE, na.rm= T),range(d_across_cong_Internal$MAE, na.rm = T)),
+#      ylim = range(range(d_across_Internal$MAE, na.rm= T),range(d_across_cong_Internal$MAE, na.rm = T)))
+
+```
+
+## O-D Across Carrier, using XGBoost
+
+```{r xgbprep}
+
+valid_type = c('Internal')#, '2019') #### !!! Add in 2019 when done
+
+for(across_carr_valid in valid_type){
+  ols_res <- dir(file.path(resultsloc, paste0('1O-D_Congestion_xgB_Validate_', across_carr_valid)))
+
+  fn = file.path(resultsloc, paste0('1O-D_Congestion_xgB_Validate', across_carr_valid, '.csv'))
+  if(!file.exists(fn)){
+    d <- read.csv(file.path(resultsloc, paste0('1O-D_Congestion_xgB_Validate_', across_carr_valid), paste0('1O-D_Congestion_xgB_Validate_', across_carr_valid, '.csv')))
+    d <- d %>%
+      filter(O_D != '') %>%
+      mutate(Origin = substr(O_D, 1, 3),
+             Destination = substr(O_D, 5, 7))
+  
+    assign(paste0('d_across_', across_carr_valid), d)
+    
+    write.csv(d, file = fn, row.names = F)
+    } else {
+      assign(paste0('d_across_xgb_', across_carr_valid), read.csv(fn))
+      }
+  }
+
+```
+
+### Internal Validation by airport
+
+```{r airport_summary_in_xgb}
+d_airport <- d_across_xgb_Internal %>%
+  group_by(Origin) %>%
+  filter(!is.na(MAE)) %>%
+  summarize(N_flight_segments = n(),
+            N_estimated = sum(!is.na(r2)),
+            MAE_median = round(median(MAE, na.rm=T), 2),
+            MAE_min = round(min(MAE, na.rm = T), 2),
+            MAE_max = round(max(MAE, na.rm = T), 2),
+            R2_median = round(median(r2, na.rm=T), 3)
+            )
+
+datatable(d_airport,
+          rownames = F,
+          filter = 'top',
+          options = list(order = list(list(3, 'asc')),
+                        searchCols = list(NULL, list(search = '100 ... 1000'), NULL, NULL, NULL, NULL, NULL),
+                         pageLength = 10),
+      caption = "Summary of flight predictability by origin airport, for XGBoost models across carriers, internal validation 2015-2018. Airports with at least 100 departing flight segments shown by default. Sorted by median MAE, small to large." ) 
+
+```
+
+The XGBoost models marginally improved model performance for flight segments with fewer than 1,000 segments flown. Namely, MAE of XGBoost models was lower than that of linear regression models, i.e. to the right of the 1:1 line in the plot below.  However, for O-D pairs of 1,000 or more flights in the training data, XGBoost models did not improve model performance.  
+
+```{r xgb_in_plot}
+d_c <- left_join(d_across_Internal,
+                 d_across_xgb_Internal %>% rename(MAE_xgb = MAE) %>% select(O_D, MAE_xgb)) %>%
+  mutate(high_flights = N > 1000)
+
+
+ggplot(d_c, aes(x = MAE, y = MAE_xgb)) + 
+  geom_point(alpha = 1/10, col = 'midnightblue') +
+  ylim(0, 30) + xlim(0, 30) +
+  facet_wrap(~high_flights)+#, scales = 'free_y') +
+  geom_abline(slope = 1, intercept = 0, lty = 3) +
+  theme_bw() +
+  ggtitle("MAE with XGBoost, validation internally to 2015-2018 data. \n Separating O-D pairs with fewer or greater than 1,000 flight segments.")
+#
+# plot(d_across_Internal$MAE,
+#      d_across_cong_Internal$MAE,
+#      xlim = range(range(d_across_Internal$MAE, na.rm= T),range(d_across_cong_Internal$MAE, na.rm = T)),
+#      ylim = range(range(d_across_Internal$MAE, na.rm= T),range(d_across_cong_Internal$MAE, na.rm = T)))
+
+```
+
+
+### External Validation by airport
+
+```{r airport_summary_ext_xgb, eval=FALSE, include=FALSE}
+d_airport <- d_across_2019 %>%
+  group_by(Origin) %>%
+  filter(!is.na(MAE)) %>%
+  summarize(N_flight_segments = n(),
+            N_estimated = sum(!is.na(r2)),
+            MAE_median = round(median(MAE, na.rm=T), 2),
+            MAE_min = round(min(MAE, na.rm = T), 2),
+            MAE_max = round(max(MAE, na.rm = T), 2),
+            R2_median = round(median(r2, na.rm=T), 3)
+            )
+
+datatable(d_airport,
+          rownames = F,
+          filter = 'top',
+          options = list(order = list(list(3, 'asc')),
+                        searchCols = list(NULL, list(search = '100 ... 1000'), NULL, NULL, NULL, NULL, NULL),
+                         pageLength = 10),
+      caption = "Summary of flight predictability by origin airport, for models across carriers, external validation on 2019 data. Airports with at least 100 departing flight segments shown by default. Sorted by median MAE, small to large." ) 
+
+```
+
+
 
 
 
