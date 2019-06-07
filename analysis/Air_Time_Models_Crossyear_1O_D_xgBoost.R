@@ -23,7 +23,7 @@ if(Sys.getenv('USER')=='rstudio'){
 setwd(codeloc)
 
 # <<><<><<> START LOOP OVER VALIDATION OPTIONS
-VALIDATION_opts = c('Internal', '2019') # VALIDATION ='Internal' # Two options for validation. One, use a training/test dataset and validate internally 
+VALIDATION_opts = c('2019', 'Internal') # VALIDATION ='Internal' # Two options for validation. One, use a training/test dataset and validate internally 
 for(VALIDATION in VALIDATION_opts){
   # <<><<><<>
   starttime <- Sys.time()
@@ -64,11 +64,13 @@ for(VALIDATION in VALIDATION_opts){
   d_train <- d_train %>% 
     left_join(Congestion_Origin, by = c('ORIGIN', 'YEAR', 'MONTH', 'DAY_OF_WEEK', 'DEP_TIME_BLK')) %>%
     rename(ORIGIN_REL_CONG = Relative_Congestion,
-           ORIGIN_N_flights = N_flights)
+           ORIGIN_N_flights = N_flights) %>%
+    filter(!is.na(ORIGIN_REL_CONG))
   d_train <- d_train %>% 
     left_join(Congestion_Destination, by = c('DEST', 'YEAR', 'MONTH', 'DAY_OF_WEEK', 'ARR_TIME_BLK')) %>%
     rename(DEST_REL_CONG = Relative_Congestion,
-           DEST_N_flights = N_flights)
+           DEST_N_flights = N_flights) %>%
+    filter(!is.na(DEST_REL_CONG))
   
   # For 2019 validation, we will use the year coefficients and congestion values for 2018. 
   # Simplest way to do this is to update the d_test file with 2018 as the year.
@@ -81,12 +83,14 @@ for(VALIDATION in VALIDATION_opts){
   d_test <- d_test %>% 
     left_join(Congestion_Origin, by = c('ORIGIN', 'YEAR', 'MONTH', 'DAY_OF_WEEK', 'DEP_TIME_BLK')) %>%
     rename(ORIGIN_REL_CONG = Relative_Congestion,
-           ORIGIN_N_flights = N_flights)
+           ORIGIN_N_flights = N_flights) %>%
+    filter(!is.na(ORIGIN_REL_CONG))
   
   d_test <- d_test %>% 
     left_join(Congestion_Destination, by = c('DEST', 'YEAR', 'MONTH', 'DAY_OF_WEEK', 'ARR_TIME_BLK')) %>%
     rename(DEST_REL_CONG = Relative_Congestion,
-           DEST_N_flights = N_flights)
+           DEST_N_flights = N_flights) %>%
+    filter(!is.na(DEST_REL_CONG))
   
   # Funtion to match factors level between training and validation data sets. Add empty factor levels if necessary 
   levadd <- function(factor_var, test, train){
@@ -116,11 +120,11 @@ for(VALIDATION in VALIDATION_opts){
     eval_metric = "mae",
     eta = 0.3,                          # default 0.3
     gamma = 0,                          # default 0 
-    max_depth = 15,                      # default 6, consider increasing
+    max_depth = 50,                     # default 6, consider increasing
     min_child_weight = 1, 
     subsample = 1, 
     colsample_bytree = 1,
-    nrounds = 100,                       # Consider decreasing if taking too long 
+    nrounds = 150,                       # Consider decreasing if taking too long 
     nthreads = avail.cores/simul.models) # Appears that multithreading does not benefit much, so run on one thread
   
   # Test after getting dtrain set inside loop for one example od
@@ -232,7 +236,7 @@ for(VALIDATION in VALIDATION_opts){
       cat('Check factor levels in', od, '\n')}
     
     # For xgboost, create model matrix with dummy variables for each level of each factor variable. + 0 Eliminates intercept. Loop over each factor variable, because all the adding and deleting levels can put levels out of order. So do each factor separately and then put them together.
-    if(nrow(d_od) > 1){
+    if(nrow(d_od) > 1 & length(pred_vars) > 1){
       
       mmi <- vector(length = nrow(d_od))
       for(i in pred_vars[pred_vars %in% factorvars]) { 
@@ -268,12 +272,19 @@ for(VALIDATION in VALIDATION_opts){
                            nrounds = xgb_params$nrounds,
                            verbose = 0)
       
-      # Get feature importance. Gain is the measure of importance
-      imp <- xgb.importance(model = m_xgb_fit)
-      write.csv(imp, file = file.path(saveloc, 'Models', paste0(od, '.csv')))
-      top_feature = as.character(imp[1,'Feature'])
-      top_feature_gain = as.character(round(imp[1,'Gain'], 5))
-      
+      # Problem with contant models, not detected as a tree
+      # Eg. training on od PHL-HOU. 
+      # So use this to detect if model is actually a tree
+      model_text_dump <- xgb.dump(model = m_xgb_fit, with_stats = TRUE)
+      if(sum(stringi::stri_detect_regex(model_text_dump, "yes=(\\d+),no=(\\d+)")) >=  1){  
+        # Get feature importance. Gain is the measure of importance
+        imp <- xgb.importance(model = m_xgb_fit)
+        write.csv(imp, file = file.path(saveloc, 'Models', paste0(od, '.csv')))
+        top_feature = as.character(imp[1,'Feature'])
+        top_feature_gain = as.character(round(imp[1,'Gain'], 5))
+      } else {
+        top_feature = top_feature_gain = NA
+      }
       # Get pseudo r2 by predicting on data set
       predy <- predict(m_xgb_fit, dtrain)
       r2 = summary(lm(predy ~ d_od$AIR_TIME))$r.squared

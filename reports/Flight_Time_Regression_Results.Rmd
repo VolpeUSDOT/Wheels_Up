@@ -150,6 +150,8 @@ for(across_carr_valid in valid_type){
 
 <!--
 TODO:
+- Report percent error, e.g. d_across_Internal %>% mutate(pct_err = 100* (MAE/Obs_Mean)) %>% summarize(mean(pct_err, na.rm=T)) # about 5.4% error
+
 - R2 by N, R2 by mean flight time, and r2 by sd flight time plots
 - Table of most and least predictable flights
 -->
