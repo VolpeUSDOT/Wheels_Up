@@ -1,7 +1,7 @@
 # Modeling air time
 # OLS regression by O_D and Carrier
 # For each unique O_D, fit a model with Carrier as a variable
-# Adding congestion at origin and destination 
+# Making congestion at origin and destination an optional variable 
 # Also saving observed and predicted flight times, and all model coefficients, to flat files for each analysis. 
 
 # Setup ----
@@ -23,11 +23,12 @@ if(Sys.getenv('USER')=='rstudio'){
 setwd(codeloc)
 
 # <<><<><<> START LOOP OVER VALIDATION OPTIONS
+CONGESTION = F # Set to T to include congestion variables, F to exclude (use schedule variables only)
 VALIDATION_opts = c('Internal', '2019') # VALIDATION = 'Internal' # Two options for validation. One, use a training/test dataset and validate internally 
 for(VALIDATION in VALIDATION_opts){
   # <<><<><<>
   
-  Analysis = paste0('1O-D_Congestion2_Validate_', VALIDATION)
+  Analysis = paste0('1O-D_Crossyear2_Validate_', VALIDATION)
   
   saveloc = file.path(resultsloc, Analysis); system(paste('mkdir -p', saveloc))
   system(paste('mkdir -p', file.path(saveloc, 'Models'))) # Directory for model coefficients
@@ -228,12 +229,20 @@ for(VALIDATION in VALIDATION_opts){
     }
     
     if(length(pred_vars) > 0){
-      use_formula = as.formula(paste0('AIR_TIME ~ (', paste(pred_vars, collapse = ' + '), ')^2 + (',
-                                      paste(cong_vars, collapse = ' + '), ')^2'))
+      if(CONGESTION){
+        use_formula = as.formula(paste0('AIR_TIME ~ (', paste(pred_vars, collapse = ' + '), ')^2 + (',
+                                        paste(cong_vars, collapse = ' + '), ')^2'))
+      } else {
+        use_formula = as.formula(paste0('AIR_TIME ~ (', paste(pred_vars, collapse = ' + '), ')^2'))
+      }
       
       m_ols_fit_interax <- lm(use_formula, data = d_od)
       
-      use_formula = as.formula(paste0('AIR_TIME ~ ', paste(c(pred_vars, cong_vars), collapse = ' + ')))
+      if(CONGESTION){
+        use_formula = as.formula(paste0('AIR_TIME ~ ', paste(c(pred_vars, cong_vars), collapse = ' + ')))
+      } else {
+        use_formula = as.formula(paste0('AIR_TIME ~ ', paste(pred_vars, collapse = ' + ')))
+      }
       
       m_ols_fit_no_interax <- lm(use_formula, data = d_od)
       
@@ -244,12 +253,20 @@ for(VALIDATION in VALIDATION_opts){
       
       # Assess models without year
       if(length(pred_vars_noyr) > 0){
-        use_formula_noyr = as.formula(paste0('AIR_TIME ~ (', paste(pred_vars_noyr, collapse = ' + '), ')^2 + (',
-                                             paste(cong_vars, collapse = ' + '), ')^2'))
+        if(CONGESTION){
+          use_formula_noyr = as.formula(paste0('AIR_TIME ~ (', paste(pred_vars_noyr, collapse = ' + '), ')^2 + (',
+                                               paste(cong_vars, collapse = ' + '), ')^2'))
+        } else {
+          use_formula_noyr = as.formula(paste0('AIR_TIME ~ (', paste(pred_vars_noyr, collapse = ' + '), ')^2'))
+        }
         
         m_ols_fit_noyr <- lm(use_formula_noyr, data = d_od)
         
-        use_formula_noyr = as.formula(paste0('AIR_TIME ~ ', paste(c(pred_vars_noyr, cong_vars), collapse = ' + ')))
+        if(CONGESTION){
+          use_formula_noyr = as.formula(paste0('AIR_TIME ~ ', paste(c(pred_vars_noyr, cong_vars), collapse = ' + ')))
+        } else {
+          use_formula_noyr = as.formula(paste0('AIR_TIME ~ ', paste(pred_vars_noyr, collapse = ' + ')))
+        }
         
         m_ols_fit_noyr_no_interax <- lm(use_formula_noyr, data = d_od)
         

@@ -137,13 +137,13 @@ ggplot(d_ensemble_Internal) +
   geom_point(aes(x = Obs_Mean, y = MAE, size = N), color = 'midnightblue', alpha = 0.1) +
   theme_bw() +
   xlab('Mean Air Time (minutes)') + ylab('Model error in air time (MAE, in minutes)') +
-  ggtitle('Model error for each O-D pair validated on 2019 data. \n Size of points represents number of flights.')
+  ggtitle('Model error for each O-D pair. \n Size of points represents number of flights.')
 
 ggplot(d_ensemble_Internal %>% mutate(pct_Err = 100*(MAE / Obs_Mean))) +
   geom_point(aes(x = Obs_Mean, y = pct_Err, size = N), color = 'firebrick4', alpha = 0.1) +
   theme_bw() +
   xlab('Mean Air Time (minutes)') + ylab('Error in air time (MAE/Observed Mean, %)') +
-  ggtitle('Percent model error for each O-D pair validated on 2019 data. \n Size of points represents number of flights.')
+  ggtitle('Percent model error for each O-D pair. \n Size of points represents number of flights.')
 
 
 ```
