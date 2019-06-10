@@ -185,4 +185,86 @@ save(list = ls()[grep('^d_', ls())],
 
 ## Create ensemble flight-level data
 
+# load(file.path(resultsloc, 'All_Results.RData'))
 
+# Use the d_ensemble data frames to identify which model results to pull from. Then use the Flight_Level data frames to pull the individual flights out
+
+prep_fl <- function(Analysis, 
+                     valid_type = c('Internal', '2019'),
+                     assign_pref = 'd_fl_'){
+  
+  Aname = paste0(Analysis, "_")
+  
+  for(across_carr_valid in valid_type){
+    ols_res <- dir(file.path(resultsloc, paste0(Aname, across_carr_valid)))
+    
+    d <- readr::read_csv(file.path(resultsloc, paste0(Aname, across_carr_valid), paste0('Flight_Level_', Aname, across_carr_valid, '.csv')))
+    d <- d %>%
+        filter(O_D != '') %>%
+        mutate(Origin = substr(O_D, 1, 3),
+               Destination = substr(O_D, 5, 7))
+      
+    assign(paste0(assign_pref, across_carr_valid), d, envir = globalenv() )
+  } # End validation type loop 
+}
+
+
+# Base 
+prep_fl(Analysis = '1O-D_Crossyear_Validate', assign_pref = 'd_fl_base_')
+
+# Regression + Congestion variables 
+prep_fl(Analysis = '1O-D_Congestion2_Validate', assign_pref = 'd_fl_cong_')
+
+# XGBoost 
+prep_fl(Analysis = '1O-D_Congestion_xgB_Validate', assign_pref = 'd_fl_xgb_')
+
+
+# Now look at every O-D in the ensemble. Pull together the flight level data for the matching best model
+# Base_regression, Regression_congestion, or XGBoost
+# Fix base regression once those are complete 2019-06-10
+
+d_fl_ensemble_2019 = d_fl_ensemble_Internal = vector()
+
+for(i in 1:nrow(d_ensemble_2019)){
+  # i = 1
+  od = d_ensemble_2019[i, 'O_D']
+  
+  Best_2019 = d_ensemble_2019[i, 'Best_Model']
+  
+  if(Best_2019 == 'Base_regression'){
+    d_fl_ensemble_2019 = rbind(d_fl_ensemble_2019,  d_fl_base_2019 %>% filter(O_D == od))
+  }
+  
+  if(Best_2019 == 'Regression_congestion'){
+    d_fl_ensemble_2019 = rbind(d_fl_ensemble_2019,  d_fl_cong_2019 %>% filter(O_D == od))
+  }
+  
+  if(Best_2019 == 'XGBoost'){
+    d_fl_ensemble_2019 = rbind(d_fl_ensemble_2019,  d_fl_xgb_2019 %>% filter(O_D == od))
+  }
+  
+  Best_Internal = d_ensemble_Internal[i, 'Best_Model']
+  
+  if(Best_Internal == 'Base_regression'){
+    d_fl_ensemble_Internal = rbind(d_fl_ensemble_Internal,  d_fl_base_Internal %>% filter(O_D == od))
+  }
+  
+  if(Best_Internal == 'Regression_congestion'){
+    d_fl_ensemble_Internal = rbind(d_fl_ensemble_Internal,  d_fl_cong_Internal %>% filter(O_D == od))
+  }
+  
+  if(Best_Internal == 'XGBoost'){
+    d_fl_ensemble_Internal = rbind(d_fl_ensemble_Internal,  d_fl_xgb_Internal %>% filter(O_D == od))
+  }
+
+  if(i %% 100 == 0) cat(i, as.character(od), ' . ')
+}
+
+save(list = c('d_fl_ensemble_2019', 'd_fl_ensemble_Internal'),
+     file = file.path(resultsloc, 'Flight_Level_Ensemble.RData'))
+
+write.csv(d_fl_ensemble_2019, file = file.path(resultsloc, 'Flight_Level_Ensemble_2019.csv'), row.names = F)
+write.csv(d_fl_ensemble_Internal, file = file.path(resultsloc, 'Flight_Level_Ensemble_Internal.csv'), row.names = F)
+
+# TODO (maybe):
+# - Get CRS, actual gate to gate, delay variables, and cancellation variables from original ASQP data for each flight 
