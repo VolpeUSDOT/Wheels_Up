@@ -8,10 +8,6 @@
 
 # Setup ----
 library(tidyverse)
-library(knitr)
-library(DT)
-library(kableExtra)
-library(plotly) # note: masks filter() from dplyr
 
 codeloc = ifelse(grepl('Flynn', normalizePath('~/')),
                  "~/git/Wheels_Up",
@@ -84,7 +80,7 @@ prep_res <- function(Analysis, within = F, outname = NULL,
 
 prep_res(Analysis = '1Carrier_Crossyear_Validate', within = T, assign_pref = 'd_within_')
 
-prep_res(Analysis = '1O-D_Crossyear_Validate', outname = 'OLS_Crossyear_1O-D_', assign_pref = 'd_across_')
+prep_res(Analysis = '1O-D_Crossyear2_Validate', assign_pref = 'd_across_')
 
 # Regression + Congestion variables 
 
@@ -183,11 +179,14 @@ write.csv(d_ensemble_Internal, file = file.path(resultsloc, 'Air_Models_Internal
 save(list = ls()[grep('^d_', ls())],
      file = file.path(resultsloc, 'All_Results.RData'))
 
-## Create ensemble flight-level data
+# Create ensemble flight-level data ----
 
 # load(file.path(resultsloc, 'All_Results.RData'))
 
 # Use the d_ensemble data frames to identify which model results to pull from. Then use the Flight_Level data frames to pull the individual flights out
+# Some individual flight rows were garbled when writing out in parallel to csv file. Here removing them by filtering on use_carriers
+
+use_carriers = unique(d_within_2019$carrier)
 
 prep_fl <- function(Analysis, 
                      valid_type = c('Internal', '2019'),
@@ -198,9 +197,11 @@ prep_fl <- function(Analysis,
   for(across_carr_valid in valid_type){
     ols_res <- dir(file.path(resultsloc, paste0(Aname, across_carr_valid)))
     
-    d <- readr::read_csv(file.path(resultsloc, paste0(Aname, across_carr_valid), paste0('Flight_Level_', Aname, across_carr_valid, '.csv')))
+    d <- readr::read_csv(file.path(resultsloc, paste0(Aname, across_carr_valid), paste0('Flight_Level_', Aname, across_carr_valid, '.csv')),
+                         skip_empty_rows = T)
+
     d <- d %>%
-        filter(O_D != '') %>%
+        filter(O_D != '' & CARRIER %in% use_carriers) %>%
         mutate(Origin = substr(O_D, 1, 3),
                Destination = substr(O_D, 5, 7))
       
@@ -210,7 +211,7 @@ prep_fl <- function(Analysis,
 
 
 # Base 
-prep_fl(Analysis = '1O-D_Crossyear_Validate', assign_pref = 'd_fl_base_')
+prep_fl(Analysis = '1O-D_Crossyear2_Validate', assign_pref = 'd_fl_base_')
 
 # Regression + Congestion variables 
 prep_fl(Analysis = '1O-D_Congestion2_Validate', assign_pref = 'd_fl_cong_')
@@ -268,3 +269,5 @@ write.csv(d_fl_ensemble_Internal, file = file.path(resultsloc, 'Flight_Level_Ens
 
 # TODO (maybe):
 # - Get CRS, actual gate to gate, delay variables, and cancellation variables from original ASQP data for each flight 
+
+# load(file.path(resultsloc, 'Flight_Level_Ensemble.RData'))

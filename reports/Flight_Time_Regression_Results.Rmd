@@ -118,11 +118,11 @@ TODO:
 
 - Modeling flight time across carriers rather than within each carrier yielded better performance (median MAE across = `r round(median(d_ensemble_2019$MAE, na.rm=T), 2)` minutes; median MAE within = `r round(median(d_within_2019$MAE, na.rm=T), 2)` minutes). This indicates that there is useful information from other carriers flying the same flight segment when predicting flight time for a specific flight.
 
-- Adding congestion variables improved the predictive ability of the models substantially. Across all 5,101 O-D pairs modeled, congestion variables were included in all except for 915 of the final models.
+- Adding congestion variables improved the predictive ability of the models substantially. Across all 5,101 O-D pairs modeled, congestion variables were included in approximately half of the final models.
 
-- The machine learning algorithm XGBoost provided the best estimates of flight time for a minority of O-D pairs, 782 using the 2019 flight data validation set. Within the XGBoost models, the most important variables were typically the relative congestion at the destination airport (297 O-D pairs) and relative congestion at the origin airport (242 O-D pairs).
+- The machine learning algorithm XGBoost provided the best estimates of flight time for a minority of O-D pairs, 794 using the 2019 flight data validation set. Within the XGBoost models, the most important variables were typically the relative congestion at the destination airport (297 O-D pairs) and relative congestion at the origin airport (242 O-D pairs).
 
-- Of all 5,101 O-D pairs, there was insufficient data on 101 flight segments when validating with across all available data (2015-2018). Using just the 2019 flight data available to date, 1,077 O-D pairs had insufficient data. 
+- Of all 5,101 O-D pairs, there was insufficient data on 101 flight segments when validating with across all available data (2015-2018). Using just the 2019 flight data available to date, 1,179 O-D pairs had insufficient data. 
 
 # Summary of best model ensemble 
 
