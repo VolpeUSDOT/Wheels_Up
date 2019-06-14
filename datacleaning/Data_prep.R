@@ -90,6 +90,7 @@ keepvars = names(d_18)
 
 d_19_1 <- read_csv(file.path(sharedloc, new_data[grep('2019_1', new_data)]))
 d_19_2 <- read_csv(file.path(sharedloc, new_data[grep('2019_2', new_data)]))
+d_19_3 <- read_csv(file.path(sharedloc, new_data[grep('2019_3', new_data)]))
 
 # Change naming convention to match already prepared data: All caps, with underscore to separate names
 
@@ -110,6 +111,7 @@ nameconv <- function(oldnames){
   
 names(d_19_1) <- nameconv(names(d_19_1))
 names(d_19_2) <- nameconv(names(d_19_2))
+names(d_19_3) <- nameconv(names(d_19_3))
 
 # Keep only which we used in in other prepped data. One difference: CRS, DEP and ARR times in other prepped data are split to _HR and _MIN, while new data keeps together
 
@@ -120,6 +122,12 @@ d_19_1 <- d_19_1 %>%
 
 d_19_2 <- d_19_2 %>%
   select(names(d_19_2)[names(d_19_2) %in% keepnames])
+
+d_19_3 <- d_19_3 %>%
+  select(names(d_19_3)[names(d_19_3) %in% keepnames])
+
+save(list = c('d_19_1', 'd_19_2','d_19_3'),
+     file = file.path(sharedloc, 'ASQP_2019_incl_3.RData'))
 
 save(list = c('d_19_1', 'd_19_2'),
      file = file.path(sharedloc, 'ASQP_2019.RData'))
