@@ -127,9 +127,6 @@ d_19_3 <- d_19_3 %>%
   select(names(d_19_3)[names(d_19_3) %in% keepnames])
 
 save(list = c('d_19_1', 'd_19_2','d_19_3'),
-     file = file.path(sharedloc, 'ASQP_2019_incl_3.RData'))
-
-save(list = c('d_19_1', 'd_19_2'),
      file = file.path(sharedloc, 'ASQP_2019.RData'))
 
 # Scan across years ----
