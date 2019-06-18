@@ -1,0 +1,225 @@
+---
+title: "Flight Level Results"
+output: 
+  html_document:
+    self_contained: true
+    toc: true
+    toc_depth: 3
+    toc_float:
+      collapsed: true
+      smooth_scroll: false
+---
+
+<!-- saved from url=(0014)about:internet -->
+<!-- This needs to be manually added to the second line of the html -->
+
+```{r setup}
+library(tidyverse)
+library(kableExtra)
+
+codeloc = ifelse(file.exists('~/git/Wheels_Up'),
+                 "~/git/Wheels_Up",
+                 "~/GitHub/Wheels_Up/")
+sharedloc = "//vntscex.local/DFS/Projects/PROJ-OR02A2/SDI/BTS_Flight_performance/Data"
+figloc = "//vntscex.local/DFS/Projects/PROJ-OR02A2/SDI/BTS_Flight_performance/Figures"
+resultsloc = "//vntscex.local/DFS/Projects/PROJ-OR02A2/SDI/BTS_Flight_performance/Results"
+
+load(file.path(resultsloc, 'Flight_Level_Ensemble.RData'))
+# Two data frames: d_fl_ensemble_2019 and d_fl_ensemble_Internal
+
+d_fl_ensemble_Internal = d_fl_ensemble_Internal %>%
+  mutate(Pct_Err = 100 * abs(AIR_TIME - Est_AIR_TIME)/AIR_TIME) %>%
+  filter(MONTH %in% formatC(1:12, width = 2, flag = 0),
+         YEAR %in% 2015:2018,
+         Pct_Err > -1e3) # Eliminate outliers, need to examine these later
+
+d_fl_ensemble_2019 = d_fl_ensemble_2019 %>%
+  mutate(Pct_Err = 100 * abs(AIR_TIME - Est_AIR_TIME)/AIR_TIME,
+         YEAR = 2019) %>%
+  filter(MONTH %in% formatC(1:12, width = 2, flag = 0),
+         Pct_Err > -1e3)
+
+```
+
+
+# Summary of best model ensemble at the flight level
+
+Look at predictability by 
+
+- Airport
+- Carrier
+- Time of day
+- Month
+
+Consider top 5 and bottom 5 of each
+
+## Internal Validation (2015-2018) summarized by airport
+
+The most and least predictable airports are summarized below. Among the least predictable include several in the upper Midwest, such as Kalamazoo (AZO), MBS International, both in Michigan, Rochester, Minnesota (RST), South Bend, Illinois (SBN), and Lansing, Michigan (LAN). Several southeastern airports fill out the rest of the top 10, from Chattanooga, Tennessee (CHN) to Augusta, Georgia (AGS).
+
+```{r airport_summary_ensemble1}
+o_airport <- d_fl_ensemble_Internal %>%
+  group_by(Origin) %>%
+  filter(!is.na(Pct_Err)) %>%
+  summarize(N_flight_segments = n(),
+            Med_Pct_Err = median(Pct_Err))
+
+kable(o_airport %>%
+        filter(N_flight_segments > 1000) %>%
+        arrange(desc(Med_Pct_Err)) %>% 
+        slice(1:10),
+      caption = "Top 10 least predictable airports by median percent error at flight level, for origin airports with at least 1000 departing flights.",
+      format.args = list(big.mark = ',')) %>% 
+  kable_styling(bootstrap_options = c("striped", "hover")) 
+
+kable(o_airport %>% 
+      filter(N_flight_segments > 1000) %>%
+      arrange(Med_Pct_Err) %>% 
+      slice(1:10),
+      caption = "Top 10 most predictable airports by median percent error at flight level, for origin airports with at least 1000 departing flights.",
+      format.args = list(big.mark = ',')) %>% 
+  kable_styling(bootstrap_options = c("striped", "hover")) 
+
+
+```
+
+Without limitations on number of flights, the least predictable airports unsurprisingly are those with very few flights departing, with a median error of 15.42% for WRG, Wrangell. This is a state-owned airport in Arkansas which had only 567 departing flights in the validation data set from 2015-2018.
+
+San Juan in Puerto Rico remains in the top 10 for most predictable origin airports, but several small airports with very few departing flights were even more predictable: Pago Pago (PPG) in American Samoa, Guam International Airport (GUM) in Guam, and Mercedita (PSE) in Puerto Rico become the most predictable. In general, airports which experience little or no winter weather are in the top 10 of most predictable origin airports.
+
+```{r airport_nolimit}
+kable(o_airport %>%
+        arrange(desc(Med_Pct_Err)) %>% 
+        slice(1:10),
+      caption = "Top 10 least predictable airports by median percent error at flight level, all origin airports.",
+      format.args = list(big.mark = ',')) %>% 
+  kable_styling(bootstrap_options = c("striped", "hover")) 
+
+kable(o_airport %>% 
+      arrange(Med_Pct_Err) %>% 
+      slice(1:10),
+      caption = "Top 10 most predictable airports by median percent error at flight level, for all origin airports.",
+      format.args = list(big.mark = ',')) %>% 
+  kable_styling(bootstrap_options = c("striped", "hover")) 
+```
+
+Summarized by destination, airports show a similar pattern, with Montgomery, Alabama (MGM) as the least predictable destination, with a median error of 8.1% of air time. Interestingly, several airports in Arizona appear in the list of least predictable destination airports, including Flagstaff and Yuma 
+
+```{r airport_summary_ensemble2}
+d_airport <- d_fl_ensemble_Internal %>%
+  group_by(Destination) %>%
+  filter(!is.na(Pct_Err)) %>%
+  summarize(N_flight_segments = n(),
+            Med_Pct_Err = median(Pct_Err))
+
+kable(d_airport %>%
+        filter(N_flight_segments > 1000) %>%
+        arrange(desc(Med_Pct_Err)) %>% 
+        slice(1:10),
+      caption = "Top 10 least predictable airports by median percent error at flight level, for destination airports with at least 1000 arriving flights.",
+      format.args = list(big.mark = ',')) %>% 
+  kable_styling(bootstrap_options = c("striped", "hover")) 
+
+kable(d_airport %>% 
+      filter(N_flight_segments > 1000) %>%
+      arrange(Med_Pct_Err) %>% 
+      slice(1:10),
+      caption = "Top 10 most predictable airports by median percent error at flight level, for origin airports with at least 1000 arriving flights.",
+      format.args = list(big.mark = ',')) %>% 
+  kable_styling(bootstrap_options = c("striped", "hover")) 
+
+```
+
+Carriers exhibit only limited range in predictability of air time overall. Across the 4 years, Virgin America (VX) had the most predictable flights, with a median percent error of 3.08%. SkyWest (OO) and ExpressJet (EV) exhibited the lest predictability, but error in air time estimates was still under 5% across all fights in the 2015-2018 validation data set.
+
+```{r carrier_predictability_yr}
+d_carr_yr <- d_fl_ensemble_Internal %>%
+  group_by(CARRIER, YEAR) %>%
+  filter(!is.na(Pct_Err)) %>%
+  summarize(N_flight_segments = n(),
+            Med_Pct_Err = median(Pct_Err))
+
+d_carr <- d_fl_ensemble_Internal %>%
+  group_by(CARRIER) %>%
+  filter(!is.na(Pct_Err)) %>%
+  summarize(N_flight_segments = n(),
+            Med_Pct_Err = median(Pct_Err))
+
+kable(d_carr %>% 
+      arrange(Med_Pct_Err) ,
+      caption = "Carriers ranked by by median percent error at flight level, from 2015-2018.",
+      format.args = list(big.mark = ',')) %>% 
+  kable_styling(bootstrap_options = c("striped", "hover")) 
+```
+
+Winter months are slightly less predictable, with a median percent error of approximately 4% of the air time, compared to summer months, with a median percent error of approximately 3% of air time.
+
+```{r seasonal_predictability}
+d_mo <- d_fl_ensemble_Internal %>%
+  group_by(MONTH) %>%
+  filter(!is.na(Pct_Err)) %>%
+  summarize(N_flight_segments = n(),
+            Med_Pct_Err = median(Pct_Err))
+
+kable(d_mo %>% 
+      arrange(Med_Pct_Err) ,
+      caption = "Months ranked by by median percent error at flight level, from 2015-2018.",
+      format.args = list(big.mark = ',')) %>% 
+  kable_styling(bootstrap_options = c("striped", "hover")) 
+
+d_yr_mo <- d_fl_ensemble_Internal %>%
+  group_by(YEAR, MONTH) %>%
+  filter(!is.na(Pct_Err)) %>%
+  summarize(N_flight_segments = n(),
+            Med_Pct_Err = quantile(Pct_Err, 0.5),
+            Pct_Err_25 = quantile(Pct_Err, 0.25),
+            Pct_Err_75 = quantile(Pct_Err, 0.75)) 
+
+
+d_yr_mo = d_yr_mo %>%
+  mutate(YrMo = lubridate::ymd(paste(YEAR, MONTH, sep = "-"), truncated = 1))
+
+
+ggplot(d_yr_mo) +
+  geom_point(aes(x = YrMo,
+                y = Med_Pct_Err)) + 
+  geom_linerange(aes(x = YrMo,
+                     ymin = Pct_Err_25,
+                     ymax = Pct_Err_75)) +
+  xlab('Year by month') + ylab('Median percent error') +
+  ggtitle('Predictability of flights across seasons, 2015-2018')
+
+```
+
+Time of day shows a peak of un-predictability (at approximately 4%) at the middle of the afternoon. Greatest predictability occurs for the few flights which depart at the last hours of the day, followed by morning flights.
+
+```{r daily_predictability}
+d_hr <- d_fl_ensemble_Internal %>%
+  filter(DEP_TIME_BLK %in% c( '0001-0559', '0600-0659', '0700-0759', '0800-0859', '0900-0959', 
+                              '1000-1059', '1100-1159', '1200-1259', '1300-1359', '1400-1459', 
+                              '1500-1559', '1600-1659', '1700-1759', '1800-1859', '1900-1959', 
+                              '2000-2059', '2100-2159', '2200-2259', '2300-2359')) %>%
+  group_by(DEP_TIME_BLK) %>%
+  filter(!is.na(Pct_Err)) %>%
+  summarize(N_flight_segments = n(),
+            Med_Pct_Err = median(Pct_Err),
+            Pct_Err_25 = quantile(Pct_Err, 0.25),
+            Pct_Err_75 = quantile(Pct_Err, 0.75))
+
+kable(d_hr %>% 
+      arrange(Med_Pct_Err) %>%
+        select(DEP_TIME_BLK, N_flight_segments, Med_Pct_Err),
+      caption = "Departure time blocks ranked by by median percent error at flight level, from 2015-2018.",
+      format.args = list(big.mark = ',')) %>% 
+  kable_styling(bootstrap_options = c("striped", "hover")) 
+
+ggplot(d_hr) +
+  geom_point(aes(x = DEP_TIME_BLK,
+                y = Med_Pct_Err)) + 
+  geom_linerange(aes(x = DEP_TIME_BLK,
+                     ymin = Pct_Err_25,
+                     ymax = Pct_Err_75)) +
+  xlab('Departure time block') + ylab('Median percent error') +
+  ggtitle('Predictability of flights across departure time block, 2015-2018')
+
+```
