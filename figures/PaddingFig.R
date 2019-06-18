@@ -99,37 +99,39 @@ taxi_in_ref = 0
 actual_time_ref = 0
 pred_time_ref = 0
 
-for(d in all_data){
-  clean_frame = na.omit(d[c("YEAR","MONTH", "TAXI_OUT","AIR_TIME","TAXI_IN","CRS_ELAPSED_TIME","ACTUAL_ELAPSED_TIME")])
-  agg_data = aggregate(clean_frame[c("TAXI_OUT","AIR_TIME","TAXI_IN","CRS_ELAPSED_TIME","ACTUAL_ELAPSED_TIME")], by = clean_frame[c("MONTH","YEAR")], mean)
-  if (2015 %in% agg_data[["YEAR"]]){
-    taxi_out_ref = agg_data$TAXI_OUT[1]
-    air_time_ref = agg_data$AIR_TIME[1]
-    taxi_in_ref = agg_data$TAXI_IN[1]
-    actual_time_ref = agg_data$ACTUAL_ELAPSED_TIME[1]
-    pred_time_ref = agg_data$CRS_ELAPSED_TIME[1]
-  }
-  
-  if (2019 %in% agg_data[["YEAR"]]){
-    agg_data[["DAY"]] = rep(c(1), times = max(agg_data[["MONTH"]]))
-    type = c(type, rep(c("Taxi Out","Air Time","Taxi In"), times = max(agg_data[["MONTH"]])))
-  }else{
-    agg_data[["DAY"]] = rep(c(1), times = 12)
-    type = c(type, rep(c("Taxi Out","Air Time","Taxi In"), times = 12))
-  }
+clean_frame = na.omit(rbind.fill(d_15, d_16,d_17,d_18,d_19)[c("YEAR","MONTH", "TAXI_OUT","AIR_TIME","TAXI_IN","CRS_ELAPSED_TIME","ACTUAL_ELAPSED_TIME")])
+agg_data = aggregate(clean_frame[c("TAXI_OUT","AIR_TIME","TAXI_IN","CRS_ELAPSED_TIME","ACTUAL_ELAPSED_TIME")], by = clean_frame[c("MONTH","YEAR")], mean)
 
-  date_simple = c(date_simple, as.Date(with(agg_data, paste(YEAR, MONTH, DAY,sep="-")), "%Y-%m-%d"))
-  date = c(date, rep(as.Date(with(agg_data, paste(YEAR, MONTH, DAY,sep="-")), "%Y-%m-%d"), times = 3))
+taxi_out_ref = agg_data$TAXI_OUT[1]
+air_time_ref = agg_data$AIR_TIME[1]
+taxi_in_ref = agg_data$TAXI_IN[1]
+actual_time_ref = agg_data$ACTUAL_ELAPSED_TIME[1]
+pred_time_ref = agg_data$CRS_ELAPSED_TIME[1]
 
-  added_time = c(added_time, 
-                 agg_data[["TAXI_OUT"]] - taxi_out_ref,
-                 agg_data[["AIR_TIME"]] - air_time_ref,
-                 agg_data[["TAXI_IN"]] - taxi_in_ref)
-  actual_time = c(actual_time, agg_data[["ACTUAL_ELAPSED_TIME"]])
-  pred_time = c(pred_time, agg_data[["CRS_ELAPSED_TIME"]])
-}
+change = data.frame(agg_data)
+change$DAY = rep(c(1), times = nrow(change))
+change$DATE = as.Date(with(change, paste(YEAR, MONTH, DAY,sep="-")), "%Y-%m-%d")
 
-added_time_df = data.frame(type, date, added_time)
-# Manually re-ordering levels like this can 
-added_time_df$type = factor(added_time_df$type, levels = levels(added_time_df$type)[c(2,1,3)])
-line_plot_df = data.frame(date_simple,pred_time, actual_time)
+change$TAXI_OUT = change$TAXI_OUT - taxi_out_ref
+change$TAXI_IN = change$TAXI_IN - taxi_in_ref
+change$AIR_TIME = change$AIR_TIME - air_time_ref
+change$ACTUAL_ELAPSED_TIME = change$ACTUAL_ELAPSED_TIME - actual_time_ref
+change$CRS_ELAPSED_TIME = change$CRS_ELAPSED_TIME - pred_time_ref
+
+library(reshape2)
+changemelt = melt(change[c("TAXI_OUT","AIR_TIME","TAXI_IN","DATE")], id.var = "DATE")
+ggplot()
+ggplot()+
+  # geom_point(data = added_time_df, mapping = aes(x=date, y = added_time))
+  geom_area(data = change, mapping = aes(x = DATE, y = TAXI_OUT, fill = "Taxi Out"), alpha = 0.5, color = "#68824b")+
+  geom_area(data = change, mapping = aes(x = DATE, y = AIR_TIME, fill = "Air Time"), alpha = 0.3, color="#994646")+
+  geom_area(data = change, mapping = aes(x = DATE, y = TAXI_IN,fill = "Taxi In"), alpha = 0.5, color = "#fff549")+
+  scale_fill_manual(values=c("#994646","#fff549","#68824b"))+
+  labs(fill = "")+
+  geom_line(data = change, mapping = aes(x=DATE, y = CRS_ELAPSED_TIME,color = "Scheduled Time"), size=1)+
+  geom_line(data = change, mapping = aes(x=DATE, y = ACTUAL_ELAPSED_TIME, color = "Actual Time"),size = 1)+
+  scale_color_manual(values = c("#000000","#f7b93d"), name = "")+
+  ggtitle("Monthly Decomposition of Changes in Actual Flight Time (Year 1995 = 0)")+
+  scale_x_date(minor_breaks = seq.Date(from = as.Date("2015-01-01"), to = as.Date("2019-03-01"), by = "3 months"))+
+  xlab("Date")+
+  ylab("mins")
