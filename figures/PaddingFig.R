@@ -120,7 +120,7 @@ change$CRS_ELAPSED_TIME = change$CRS_ELAPSED_TIME - pred_time_ref
 
 library(reshape2)
 changemelt = melt(change[c("TAXI_OUT","AIR_TIME","TAXI_IN","DATE")], id.var = "DATE")
-ggplot()
+
 ggplot()+
   # geom_point(data = added_time_df, mapping = aes(x=date, y = added_time))
   geom_area(data = change, mapping = aes(x = DATE, y = TAXI_OUT, fill = "Taxi Out"), alpha = 0.5, color = "#68824b")+
@@ -130,8 +130,10 @@ ggplot()+
   labs(fill = "")+
   geom_line(data = change, mapping = aes(x=DATE, y = CRS_ELAPSED_TIME,color = "Scheduled Time"), size=1)+
   geom_line(data = change, mapping = aes(x=DATE, y = ACTUAL_ELAPSED_TIME, color = "Actual Time"),size = 1)+
+  geom_vline(xintercept = seq.Date(from = as.Date("2015-01-01"), to = as.Date("2019-03-01"), by = "6 months"),color = "#a0a0a0", size = 0.7)+
   scale_color_manual(values = c("#000000","#f7b93d"), name = "")+
-  ggtitle("Monthly Decomposition of Changes in Actual Flight Time (Year 1995 = 0)")+
+  ggtitle("Monthly Decomposition of Changes in Actual Flight Time (January 2015 = 0)")+
   scale_x_date(minor_breaks = seq.Date(from = as.Date("2015-01-01"), to = as.Date("2019-03-01"), by = "3 months"))+
   xlab("Date")+
-  ylab("mins")
+  ylab("mins")+
+  theme_bw(base_line_size = 1)
