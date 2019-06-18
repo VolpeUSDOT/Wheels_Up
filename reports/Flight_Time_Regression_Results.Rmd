@@ -165,10 +165,12 @@ min_thresholds = min_thresholds %>% mutate(pct_pred = 100*min_pred/nrow(d_ensemb
 ggplot(min_thresholds) +
   theme_bw() +
   geom_line(aes(x = min_thresholds, y = pct_pred), col = 'midnightblue', lwd = 2) +
-  ylab('Percent of all flight segments which can be reliably predicted') +
+  ylab('Percent of all flight segments \n which can be reliably predicted') +
   xlab('Threshold of MAE cutoff (minutes)') + 
   ggtitle('Predictability of flight segments across various MAE thresholds')
 
+ggsave(file = file.path(figloc, 'Predictability_by_min.jpg'),
+       width = 4.5, height = 3)
 
 pct_thresholds = seq(from = 0.01, to = 0.2, by = 0.01)
 pct_pred = vector()
@@ -182,9 +184,14 @@ pct_thresholds = pct_thresholds %>% mutate(pct_fl_pred = 100*(pct_pred / nrow(d_
 ggplot(pct_thresholds) +
   theme_bw() +
   geom_line(aes(x = pct_thresholds, y = pct_fl_pred), col = 'firebrick4', lwd = 2) +
-  ylab('Percent of all flight segments which can be reliably predicted') +
+  ylab('Percent of all flight segments \n which can be reliably predicted') +
   xlab('Threshold of percent error cutoff (%)') + 
   ggtitle('Predictability of flight segments across various percent error thresholds')
+
+
+ggsave(file = file.path(figloc, 'Predictability_by_pct.jpg'),
+       width = 4.5, height = 3)
+
 
 ```
 
