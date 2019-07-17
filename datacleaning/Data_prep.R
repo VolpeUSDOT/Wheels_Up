@@ -14,7 +14,7 @@ sharedloc = "//vntscex.local/DFS/Projects/PROJ-OR02A2/SDI/BTS_Flight_performance
 
 avail_data = dir(sharedloc)[grep('^ASQP.\\d{4}.csv$', dir(sharedloc))] # Match with regular expresion to only get csv files
 
-new_data = dir(sharedloc)[grep('On_Time_Reporting_Carrier_On_Time_Performance_\\(\\w*\\)_\\d{4}_\\d{1,2}', dir(sharedloc))] # Newly available data, currently Jan/Feb 2019.
+new_data = dir(sharedloc)[grep('On_Time_Reporting_Carrier_On_Time_Performance_\\(\\w*\\)_\\d{4}_\\d{1,2}', dir(sharedloc))] # Newly available data, Jan-April 2019.
 
 # Function ----
 
@@ -91,6 +91,7 @@ keepvars = names(d_18)
 d_19_1 <- read_csv(file.path(sharedloc, new_data[grep('2019_1', new_data)]))
 d_19_2 <- read_csv(file.path(sharedloc, new_data[grep('2019_2', new_data)]))
 d_19_3 <- read_csv(file.path(sharedloc, new_data[grep('2019_3', new_data)]))
+d_19_4 <- read_csv(file.path(sharedloc, new_data[grep('2019_4', new_data)]))
 
 # Change naming convention to match already prepared data: All caps, with underscore to separate names
 
@@ -112,6 +113,7 @@ nameconv <- function(oldnames){
 names(d_19_1) <- nameconv(names(d_19_1))
 names(d_19_2) <- nameconv(names(d_19_2))
 names(d_19_3) <- nameconv(names(d_19_3))
+names(d_19_4) <- nameconv(names(d_19_4))
 
 # Keep only which we used in in other prepped data. One difference: CRS, DEP and ARR times in other prepped data are split to _HR and _MIN, while new data keeps together
 
@@ -126,7 +128,10 @@ d_19_2 <- d_19_2 %>%
 d_19_3 <- d_19_3 %>%
   select(names(d_19_3)[names(d_19_3) %in% keepnames])
 
-save(list = c('d_19_1', 'd_19_2','d_19_3'),
+d_19_4 <- d_19_4 %>%
+  select(names(d_19_4)[names(d_19_4) %in% keepnames])
+
+save(list = c('d_19_1', 'd_19_2','d_19_3', 'd_19_4'),
      file = file.path(sharedloc, 'ASQP_2019.RData'))
 
 # Scan across years ----
