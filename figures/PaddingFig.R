@@ -24,8 +24,8 @@ if(length(avail_data) == 0) {
   load(file.path(sharedloc, 'Cross-year_Summary.RData'))
 }
 
-# Bind 3 months of 2019 data together
-d_19 = rbind(d_19_1, d_19_2, d_19_3)
+# Bind four months of 2019 data together
+d_19 = rbind(d_19_1, d_19_2, d_19_3, d_19_4)
 
 # Filter out carriers added in 2018
 use_carriers = c('AA', 'AS', 'B6', 'DL', 'EV', 'F9', 'HA', 'NK', 'OO', 'UA', 'VX', 'WN')
@@ -36,17 +36,17 @@ d_18 = filter(d_18, CARRIER %in% use_carriers)
 d_19 = filter(d_19, CARRIER %in% use_carriers)
 
 ##################################################################################
-### OLD ANNUAL AVERAGE
+### OLD ANNUAL AVERAGE ----
 ##################################################################################
-
-# Reference values to calculate change in 
-# Values are estimated from the 2015 values in the Forbes figure
+ 
+# # Reference values to calculate change in
+# # Values are estimated from the 2015 values in the Forbes figure
 # taxi_out_ref = mean(d_15[["TAXI_OUT"]], na.rm = TRUE) - 2.5
 # air_time_ref = mean(d_15[["AIR_TIME"]], na.rm = TRUE) - .7
 # taxi_in_ref = mean(d_15[["TAXI_IN"]], na.rm = TRUE) - 2.3
 # crs_ref = mean(d_15[["CRS_ELAPSED_TIME"]], na.rm = TRUE) - 8.8
 # total_ref = mean(d_15[["ACTUAL_ELAPSED_TIME"]], na.rm = TRUE) - 5.5
-
+# 
 # # Empty vectors to fill with mean values
 # added_time = vector()
 # actual_time = vector()
@@ -54,12 +54,12 @@ d_19 = filter(d_19, CARRIER %in% use_carriers)
 # 
 # # Year and type labels for each averaged data point and line plot points
 # year = rep(2015:2019, each = 3)
-# type = rep(c("Taxi Out","Air Time","Taxi In"), times = 5)
+# type = rep(c("Taxi Out","Airborne Time","Taxi In"), times = 5)
 # year_simple = 2015:2019
 # 
-
-# Iterate over all the available data and create the annual mean.
-# Append values to vectors added_time for the area plot, and pred_time/actual_time for the line plots
+# 
+# # Iterate over all the available data and create the annual mean.
+# # Append values to vectors added_time for the area plot, and pred_time/actual_time for the line plots
 # all_data = mget(paste("d_", 15:19, sep = ""), envir=.GlobalEnv)
 # for(d in all_data){
 #   # Annual mean of values
@@ -68,13 +68,13 @@ d_19 = filter(d_19, CARRIER %in% use_carriers)
 #   taxi_in = mean(d[["TAXI_IN"]], na.rm = TRUE) - taxi_in_ref
 #   crs = mean(d[["CRS_ELAPSED_TIME"]], na.rm=TRUE) - crs_ref
 #   actual = mean(d[["ACTUAL_ELAPSED_TIME"]], na.rm=TRUE) - total_ref
-#     
+# 
 #   # Placing mean values into appropriate vectors
 #   added_time = c(added_time, c(taxi_out, air_time, taxi_in))
 #   pred_time = c(pred_time, crs)
 #   actual_time = c(actual_time,actual)
 # }
-
+# 
 # # Order the data to match Forbes 2019 figure
 # added_time_df = data.frame(type, year, added_time)
 # added_time_df$type = factor(added_time_df$type, levels = levels(added_time_df$type)[c(2,1,3)])
@@ -94,7 +94,7 @@ d_19 = filter(d_19, CARRIER %in% use_carriers)
 # ggsave(file = file.path(figloc, 'Forbes_Extended_Figure.jpg'))
 
 ###############################################################################
-##MONTHLY AVERAGE
+## MONTHLY AVERAGE ----
 ###############################################################################
 taxi_out_ref = 0
 air_time_ref = 0
@@ -102,11 +102,11 @@ taxi_in_ref = 0
 actual_time_ref = 0
 pred_time_ref = 0
 
-#Removes NA Values and takes the monthly mean
-clean_frame = na.omit(rbind.fill(d_15, d_16,d_17,d_18,d_19)[c("YEAR","MONTH", "TAXI_OUT","AIR_TIME","TAXI_IN","CRS_ELAPSED_TIME","ACTUAL_ELAPSED_TIME")])
+# Removes NA Values and takes the monthly mean
+clean_frame = na.omit(rbind.fill(d_15, d_16, d_17, d_18, d_19)[c("YEAR","MONTH", "TAXI_OUT","AIR_TIME","TAXI_IN","CRS_ELAPSED_TIME","ACTUAL_ELAPSED_TIME")])
 agg_data = aggregate(clean_frame[c("TAXI_OUT","AIR_TIME","TAXI_IN","CRS_ELAPSED_TIME","ACTUAL_ELAPSED_TIME")], by = clean_frame[c("MONTH","YEAR")], mean)
 
-#Counts the number of flights in each month (Not used for plotting, but may be useful some other time)
+# Counts the number of flights in each month (Not used for plotting, but may be useful some other time)
 num_flights = count(clean_frame, c("YEAR","MONTH"))
 
 #Establish reference values at January 2015
@@ -149,7 +149,7 @@ padding_bar = ggplot()+
 #Make plot of change in flight time
 monthly_decomp = ggplot()+
   geom_area(data = change, mapping = aes(x = DATE, y = TAXI_OUT, fill = "Taxi Out"), alpha = 0.5)+
-  geom_area(data = change, mapping = aes(x = DATE, y = AIR_TIME, fill = "Air Time"), alpha = 0.3)+
+  geom_area(data = change, mapping = aes(x = DATE, y = AIR_TIME, fill = "Airborne Time"), alpha = 0.3)+
   geom_area(data = change, mapping = aes(x = DATE, y = TAXI_IN,fill = "Taxi In"), alpha = 0.5)+
   scale_fill_manual(values=c("#994646","#fff549","#68824b"))+
   labs(fill = "")+
@@ -170,23 +170,23 @@ stacked_monthly_decomp = grid.arrange(padding_bar, monthly_decomp, nrow = 2)
 ggsave(stacked_monthly_decomp, file = file.path(figloc, 'Forbes_MonthlyDecomp.jpg'))
 
 ################################################################################################
-### ANNUAL AVERAGE
+### ANNUAL AVERAGE ----
 ################################################################################################
 
-#Calculate annual mean
+# Calculate annual mean
 ann_agg = aggregate(agg_data[c("TAXI_OUT","AIR_TIME","TAXI_IN","CRS_ELAPSED_TIME","ACTUAL_ELAPSED_TIME")], by = agg_data[c("YEAR")], mean)
 ann_agg$MONTH = rep(c(1), times = nrow(ann_agg))
 ann_agg$DAY = rep(c(1), times = nrow(ann_agg))
 ann_agg$DATE = as.Date(with(ann_agg, paste(YEAR, MONTH, DAY,sep="-")), "%Y-%m-%d")
 
-#Establish reference value at 1995
+# Establish reference value at 1995
 ann_taxi_out_ref = ann_agg$TAXI_OUT[1]- 2.5
 ann_air_time_ref = ann_agg$AIR_TIME[1]- .7
 ann_taxi_in_ref = ann_agg$TAXI_IN[1]- 2.3
 ann_actual_time_ref = ann_agg$ACTUAL_ELAPSED_TIME[1]- 5.5
 ann_pred_time_ref = ann_agg$CRS_ELAPSED_TIME[1]- 8.8
 
-#Calculate change in flight time
+# Calculate change in flight time
 ann_change = data.frame(ann_agg)
 ann_change$TAXI_OUT = ann_change$TAXI_OUT - ann_taxi_out_ref
 ann_change$TAXI_IN = ann_change$TAXI_IN - ann_taxi_in_ref 
@@ -198,7 +198,7 @@ ann_change$CRS_ELAPSED_TIME = ann_change$CRS_ELAPSED_TIME - ann_pred_time_ref
 ann_change_melt = melt(ann_change[c("TAXI_OUT","AIR_TIME","TAXI_IN","DATE")], id.var = "DATE")
 
 # Order the data to match Forbes 2019 figure
-ann_change_melt$variable = factor(rep(c("Taxi Out", "Air Time", "Taxi In"), each = 5))
+ann_change_melt$variable = factor(rep(c("Taxi Out", "Airborne Time", "Taxi In"), each = 5))
 levels(ann_change_melt$variable)
 ann_change_melt$variable = factor(ann_change_melt$variable, levels = levels(ann_change_melt$variable)[c(2,1,3)])
 
@@ -215,6 +215,8 @@ annual_plot = ggplot()+
   ggtitle("Decomposition of Changes in Actual Flight Time (Year 1995 = 0)")+
   xlab("Year")+
   ylab("mins")
+
+annual_plot
 
 #Save plot
 ggsave(annual_plot, width = 6, height = 3.5, file = file.path(figloc, 'Forbes_Extended_Figure.jpg'))

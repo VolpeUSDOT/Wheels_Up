@@ -7,7 +7,7 @@ sudo zip -r /home/rstudio/Wheels_Up_Code_Update.zip /home/rstudio/Wheels_Up
 mkdir -p ~/to_s3/
 
 sudo cp -a /home/rstudio/results.zip ~/to_s3/.
-# sudo cp -a /home/rstudio/data.zip ~/to_s3/.
+# sudo cp -a /home/rstudio/Data.zip ~/to_s3/.
 sudo cp -a /home/rstudio/Wheels_Up_Code_Update.zip ~/to_s3/.
 
 # 3. copy to bucket
