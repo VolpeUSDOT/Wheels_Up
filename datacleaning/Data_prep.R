@@ -134,6 +134,7 @@ d_19_4 <- d_19_4 %>%
 save(list = c('d_19_1', 'd_19_2','d_19_3', 'd_19_4'),
      file = file.path(sharedloc, 'ASQP_2019.RData'))
 
+
 # Scan across years ----
 # Extract carriers and airports, make tables showing which years they appear in and how frequently
 
@@ -190,3 +191,23 @@ od_yr %>% filter(ORIGIN %in% origin_not_in_dest)
 
 save(list = c('carr_yr', 'od_yr'),
      file = file.path(sharedloc, 'Cross-year_Summary.RData'))
+
+
+# Summary of April 2019 data for Recent Reportable Flights ----
+
+d_19_4 <- d_19_4 %>% 
+  mutate(OD = paste(Origin, Dest))
+
+d_19_4 %>%
+  summarize(nflights = format(length(Year), big.mark = ','),
+            nOD = length(unique(OD)),
+            nCarrier = length(unique(Reporting_Airline)),
+            pct_Canc = sum(Cancelled == 1 | Diverted == 1)/length(Year),
+            pct_6to9_dep = sum(DepTimeBlk == '0600-0659' |
+                                 DepTimeBlk == '0700-0759' |
+                                 DepTimeBlk == '0800-0859') / length(Year),
+            pct_6to7_dep = sum(DepTimeBlk == '0600-0659') / length(Year)
+            )
+
+# nflights  nOD  nCarrier   pct_Canc pct_6to9_dep pct_6to7_dep
+# 612,023   5550       17 0.02614771    0.2088974   0.07490568
