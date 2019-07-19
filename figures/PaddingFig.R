@@ -136,13 +136,15 @@ change$PADDING = change$CRS_ELAPSED_TIME - change$ACTUAL_ELAPSED_TIME
 
 #Make bar plot of amount of padding
 padding_bar = ggplot()+
-  geom_bar(data = change, mapping = aes(x = DATE, y = PADDING, fill=""), stat = "identity",position = position_nudge(x = 16))+
+  geom_vline(xintercept = seq.Date(from = as.Date("2015-01-01"), to = as.Date("2019-03-01"), by = "6 months"),color = "grey20", size = 0.3)+
+  geom_bar(data = change, mapping = aes(x = DATE, y = PADDING, fill=""), stat = "identity"
+#           , position = position_nudge(x = 16)
+           )+
   scale_fill_manual(values = c("#70936e"))+
   theme_bw() + 
-  theme(legend.title = element_blank(), legend.position = "none")+
-  geom_vline(xintercept = seq.Date(from = as.Date("2015-01-01"), to = as.Date("2019-03-01"), by = "6 months"),color = "#a0a0a0", size = 0.3)+
+  theme(legend.title = element_blank(), legend.position = "none", plot.title = element_text(size = 10, face = "bold")) +
   scale_x_date(minor_breaks = seq.Date(from = as.Date("2015-01-01"), to = as.Date("2019-03-01"), by = "3 months"))+
-  ggtitle("Monthly Averaged Difference Between Scheduled and Actual Time (January 2015 = 0)")+
+  ggtitle("Monthly change in difference between scheduled and airborne time since January 2015")+
   xlab("Date")+
   ylab("mins")
 
@@ -155,19 +157,20 @@ monthly_decomp = ggplot()+
   labs(fill = "")+
   geom_line(data = change, mapping = aes(x=DATE, y = CRS_ELAPSED_TIME,color = "Scheduled Time"), size=0.75)+
   geom_line(data = change, mapping = aes(x=DATE, y = ACTUAL_ELAPSED_TIME, color = "Actual Time"),size = 0.75)+
-  geom_vline(xintercept = seq.Date(from = as.Date("2015-01-01"), to = as.Date("2019-03-01"), by = "6 months"),color = "#a0a0a0", size = 0.3)+
+  geom_vline(xintercept = seq.Date(from = as.Date("2015-01-01"), to = as.Date("2019-03-01"), by = "6 months"),color = "grey20", size = 0.3)+
   scale_color_manual(values = c("#000000","#f7b93d"), name = "")+
-  ggtitle("Monthly Decomposition of Changes in Actual Flight Time (January 2015 = 0)")+
+  ggtitle("Monthly change in actual flight time since January 2015, by components of flight fime")+
   scale_x_date(minor_breaks = seq.Date(from = as.Date("2015-01-01"), to = as.Date("2019-03-01"), by = "3 months"))+
   ylim(-1.5,11.5)+
   xlab("Date")+
   ylab("mins")+
   theme_bw(base_line_size = 1)+
-  theme(legend.position = "bottom")
+  theme(legend.title = element_blank(), legend.position = "none", plot.title = element_text(size = 10, face = "bold"))
 
 #Stack both plots and save
 stacked_monthly_decomp = grid.arrange(padding_bar, monthly_decomp, nrow = 2)
-ggsave(stacked_monthly_decomp, file = file.path(figloc, 'Forbes_MonthlyDecomp.jpg'))
+ggsave(stacked_monthly_decomp, file = file.path(figloc, 'Forbes_MonthlyDecomp.jpg'),
+       width = 7, height = 5)
 
 ################################################################################################
 ### ANNUAL AVERAGE ----
@@ -212,7 +215,7 @@ annual_plot = ggplot()+
   theme_bw()+
   theme(legend.position="right")+
   labs(fill = "")+
-  ggtitle("Decomposition of Changes in Actual Flight Time (Year 1995 = 0)")+
+  ggtitle("Annual change in actual flight time since 1995, by components of flight time ")+
   xlab("Year")+
   ylab("mins")
 

@@ -94,7 +94,7 @@ codeloc = ifelse(grepl('Flynn', normalizePath('~/')),
 sharedloc = "//vntscex.local/DFS/Projects/PROJ-OR02A2/SDI/BTS_Flight_performance/Data"
 resultsloc = "//vntscex.local/DFS/Projects/PROJ-OR02A2/SDI/BTS_Flight_performance/Results"
 
-load(file.path(resultsloc, 'All_Results.RData'))
+load(file.path(resultsloc, 'All_Results.RData')) # Created by analysis/Results_prep.R
 
 ```
 
