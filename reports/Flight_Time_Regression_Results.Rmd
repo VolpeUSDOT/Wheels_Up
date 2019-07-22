@@ -44,7 +44,7 @@ In order to validate a predictive model, a model has to be fit using one portion
 - Internal validation: Set aside a stratified random sample of flights within each O-D pair flown by each carrier. Use 80% of the flight data to train the model, and the remaining 20% is set aside to test the model.
 - External validation: Use the complete 2015-2018 data to fit the model. Use available flights from 2019 to test the model. 
 
-When preparing these models, only January and February flight data were available for 2019 ([Transtats](https://www.transtats.bts.gov/Tables.asp?DB_ID=120&DB_Name=Airline On-Time Performance Data&DB_Short_Name=On-Time)).  
+When preparing these models, January to April flight data were available for 2019 ([Transtats](https://www.transtats.bts.gov/Tables.asp?DB_ID=120&DB_Name=Airline On-Time Performance Data&DB_Short_Name=On-Time)).  
 
 The most important metric of model goodness-of-fit for this project is how close the model predictions are to the observed air time. We use mean absolute error (MAE) to show how close model predictions are in minutes to observed air times for a given O-D pair. MAE is calculated as follows:
 
@@ -60,15 +60,15 @@ Combining the two modeling approaches (O-D within carrier and O-D across carrier
 | Model Approach     | Validation Approach | Training Data Set                        | Test Data Set                          | Total Number of Models |
 |--------------------|---------------------|------------------------------------------|----------------------------------------|------------------------|
 | O-D Within Carrier | Internal            | 2015-2018, 80% of data<br>17.5 M flights | 2015-2018, 20% of data<br>4.4 M flights|     10,372             |
-| O-D Within Carrier | 2019                | 2015-2018, 100% of data<br>21.9 M flights| 2019 available data<br>861,623 flights |     10,372             |
+| O-D Within Carrier | 2019                | 2015-2018, 100% of data<br>21.9 M flights| 2019 available data<br>1.8 M flights |     10,372             |
 | O-D Across Carrier | Internal            | 2015-2018, 80% of data<br>17.5 M flights | 2015-2018, 20% of data<br>4.4 M flights|      5,101             |
-| O-D Across Carrier | 2019                | 2015-2018, 100% of data<br>21.9 M flights| 2019 available data<br>861,623 flights |      5,101             |
+| O-D Across Carrier | 2019                | 2015-2018, 100% of data<br>21.9 M flights| 2019 available data<br>1.8 M flights |      5,101             |
 
-The O-D within carrier approach yields more total models because multiple carriers fly the same O-D flight segment, for 2,779 of the 5,101 segments. Note that only flight segments which appeared in the 2018 data were included; thus, flight segments which were only flown in 2015 but not in 2018 for example would have been excluded.
+The O-D within carrier approach yields more total models because multiple carriers fly the same O-D flight segment, for 2,779 of the 5,101 segments. Note that only flights which appeared in the 2018 data were included; thus, flights which were only flown in 2015 but not in 2018 for example would have been excluded.
 
 <!-- 
-summary(table(d_within_Internal$O_D) == 1) # to see how many flight segments are flown by just a single carrier
-load(file.path(sharedloc, 'ASQP_2019_validate.RData')); format(nrow(d_19), big.mark = ',') # to look at 2019 data used to date
+summary(table(d_within_Internal$O_D) == 1) # to see how many flights are flown by just a single carrier
+load(file.path(sharedloc, 'ASQP_2019_to04_validate.RData')); format(nrow(d_19), big.mark = ',') # to look at 2019 data used to date,  "1,825,970"; load(file.path(resultsloc, 'Flight_Level_Ensemble.RData')); format(nrow(d_fl_ensemble_2019), big.mark = ',')
 load(file.path(sharedloc, 'ASQP_2015-2018_train.RData')); 
 format(nrow(d_crossyear_train), big.mark = ',')
 # "17,532,876"
@@ -91,17 +91,19 @@ library(plotly) # note: masks filter() from dplyr
 codeloc = ifelse(grepl('Flynn', normalizePath('~/')),
                    "~/git/Wheels_Up",
                    "~/GitHub/Wheels_Up")
-sharedloc = "//vntscex.local/DFS/Projects/PROJ-OR02A2/SDI/BTS_Flight_performance/Data"
-resultsloc = "//vntscex.local/DFS/Projects/PROJ-OR02A2/SDI/BTS_Flight_performance/Results"
-
+sharedloc = "~/Temp_Working_Docs/Results" 
+  # "//vntscex.local/DFS/Projects/PROJ-OR02A2/SDI/BTS_Flight_performance/Data"
+resultsloc = "~/Temp_Working_Docs/Results"
+  # "//vntscex.local/DFS/Projects/PROJ-OR02A2/SDI/BTS_Flight_performance/Results"
+figloc = "//vntscex.local/DFS/Projects/PROJ-OR02A2/SDI/BTS_Flight_performance/Figures"
 load(file.path(resultsloc, 'All_Results.RData')) # Created by analysis/Results_prep.R
-
+load(file.path(resultsloc, 'Flight_Level_Ensemble.RData')) # For summaries of most and least predictible airports and other summary statistics
 ```
 
 
 <!--
 TODO:
-- Report percent error, e.g. d_ensemble_2019 %>% mutate(pct_err = 100* (MAE/Obs_Mean)) %>% summarize(mean(pct_err, na.rm=T)) # about 5.4% error
+- Report percent error, e.g. d_ensemble_2019 %>% mutate(pct_err = 100* (MAE/Obs_Mean)) %>% summarize(mean(pct_err, na.rm=T)) # about 5.4% error. Same 5.485 after updating to April 2019
 - R2 by N, R2 by mean flight time, and r2 by sd flight time plots
 - Table of most and least predictable flights
 -->
@@ -122,27 +124,39 @@ TODO:
 
 - The machine learning algorithm XGBoost provided the best estimates of flight time for a minority of O-D pairs, 794 using the 2019 flight data validation set. Within the XGBoost models, the most important variables were typically the relative congestion at the destination airport (297 O-D pairs) and relative congestion at the origin airport (242 O-D pairs).
 
-- Of all 5,101 O-D pairs, there was insufficient data on 101 flight segments when validating with across all available data (2015-2018). Using just the 2019 flight data available to date, 1,179 O-D pairs had insufficient data. 
+- Of all 5,101 O-D pairs, there was insufficient data on 101 flights when validating with across all available data (2015-2018). Using just the 2019 flight data available to date, 1,026 O-D pairs had insufficient data. 
+
+<!-- 
+# Additional info on flights which could not be estimated:
+d_ensemble_Internal %>% filter(is.na(MAE)) %>% summarize(format(sum(N), big.mark = ',')) 
+# 435
+d_ensemble_2019 %>% filter(is.na(MAE)) %>% summarize(format(sum(N), big.mark = ',')) 
+# 454,864
+d_ensemble_Internal %>% group_by(is.na(MAE)) %>% summarize(sum(N))
+
+d_ensemble_2019 %>% group_by(is.na(MAE)) %>% summarize(sum(N))
+# Sum of flights with congestion variables
+d_ensemble_2019 %>% group_by(Best_Model) %>% summarize(n_flights = sum(N)) 
+-->
 
 # Summary of best model ensemble 
 
-
 The following figures summarize the modeled air time error in two ways. First, the MAE (in minutes) is plotted against the observed mean air time for each individual O-D pair in the validation set. Second, the percent error in air time is plotted, i.e., MAE/Observed mean air time. These figures use models trained on 80% of the 2015-2018 data, and validated on the remaining 20%; the figures for the models validated on 2019 data are similar.
 
-These figures illustrate that the feasibility of predicting air time is high if a 10 minute or 10% error is acceptable. At more strict thresholds, fewer flight segments could be reliably predicted.
+These figures illustrate that the feasibility of predicting air time is high if a 10 minute or 10% error is acceptable. At more strict thresholds, fewer flights could be reliably predicted.
 
 ```{r mae_fig1}
 
 ggplot(d_ensemble_Internal) +
   geom_point(aes(x = Obs_Mean, y = MAE, size = N), color = 'midnightblue', alpha = 0.1) +
   theme_bw() +
-  xlab('Mean Air Time (minutes)') + ylab('Model error in air time (MAE, in minutes)') +
+  xlab('Mean Air Time (minutes)') + ylab('Model error in airborne time (MAE, in minutes)') +
   ggtitle('Model error for each O-D pair. \n Size of points represents number of flights.')
 
 ggplot(d_ensemble_Internal %>% mutate(pct_Err = 100*(MAE / Obs_Mean))) +
   geom_point(aes(x = Obs_Mean, y = pct_Err, size = N), color = 'firebrick4', alpha = 0.1) +
   theme_bw() +
-  xlab('Mean Air Time (minutes)') + ylab('Error in air time (MAE/Observed Mean, %)') +
+  xlab('Mean Air Time (minutes)') + ylab('Error in airborne time (MAE/Observed Mean, %)') +
   ggtitle('Percent model error for each O-D pair. \n Size of points represents number of flights.')
 
 
@@ -165,9 +179,9 @@ min_thresholds = min_thresholds %>% mutate(pct_pred = 100*min_pred/nrow(d_ensemb
 ggplot(min_thresholds) +
   theme_bw() +
   geom_line(aes(x = min_thresholds, y = pct_pred), col = 'midnightblue', lwd = 2) +
-  ylab('Percent of all flight segments \n which can be reliably predicted') +
+  ylab('Percent of all flights \n which can be reliably predicted') +
   xlab('Threshold of MAE cutoff (minutes)') + 
-  ggtitle('Predictability of flight segments across various MAE thresholds')
+  ggtitle('Predictability of flights across various MAE thresholds')
 
 ggsave(file = file.path(figloc, 'Predictability_by_min.jpg'),
        width = 4.5, height = 3)
@@ -184,9 +198,9 @@ pct_thresholds = pct_thresholds %>% mutate(pct_fl_pred = 100*(pct_pred / nrow(d_
 ggplot(pct_thresholds) +
   theme_bw() +
   geom_line(aes(x = pct_thresholds, y = pct_fl_pred), col = 'firebrick4', lwd = 2) +
-  ylab('Percent of all flight segments \n which can be reliably predicted') +
+  ylab('Percent of all flights \n which can be reliably predicted') +
   xlab('Threshold of percent error cutoff (%)') + 
-  ggtitle('Predictability of flight segments across various percent error thresholds')
+  ggtitle('Predictability of flights across various percent error thresholds')
 
 
 ggsave(file = file.path(figloc, 'Predictability_by_pct.jpg'),
@@ -215,7 +229,7 @@ datatable(d_airport,
           options = list(order = list(list(3, 'asc')),
                         searchCols = list(NULL, list(search = '100 ... 1000'), NULL, NULL, NULL, NULL, NULL),
                          pageLength = 10),
-      caption = "Summary of flight predictability by origin airport, for best model by each O-D pair, internal validation 2015-2018. Airports with at least 100 departing flight segments shown by default. Sorted by median MAE, small to large." ) 
+      caption = "Summary of flight predictability by origin airport, for best model by each O-D pair, internal validation 2015-2018. Airports with at least 100 departing flights shown by default. Sorted by median MAE, small to large." ) 
 
 ```
 
@@ -240,7 +254,7 @@ datatable(d_airport,
           options = list(order = list(list(3, 'asc')),
                         searchCols = list(NULL, list(search = '100 ... 1000'), NULL, NULL, NULL, NULL, NULL),
                          pageLength = 10),
-      caption = "Summary of flight predictability by origin airport, for best model by each O-D pair, external validation on 2019 data. Airports with at least 100 departing flight segments shown by default. Sorted by median MAE, small to large." ) 
+      caption = "Summary of flight predictability by origin airport, for best model by each O-D pair, external validation on 2019 data. Airports with at least 100 departing flights shown by default. Sorted by median MAE, small to large." ) 
 
 ```
 
@@ -250,7 +264,7 @@ datatable(d_airport,
 
 The following tables summarizes the predictability of flights, for each individual set of models: base regression models, regression models with congestion added, and XGBoost machine learning models.
 
-For the O-D within carrier approach, we report the total number of unique flight segments (origin-destination pairs) modeled, as well as the MAE and $r^2$ for across all flights for that carrier. Not all flight segments could be reliably modeled; for instance, American flew only a single flight between DCA and Atlanta in 2018 (on 2018-12-23, at 9pm). With only a single value for this combination of carrier and origin-destination pair, the current modeling framework does not produce an estimate for this flight segment.
+For the O-D within carrier approach, we report the total number of unique flights (origin-destination pairs) modeled, as well as the MAE and $r^2$ for across all flights for that carrier. Not all flights could be reliably modeled; for instance, American flew only a single flight between DCA and Atlanta in 2018 (on 2018-12-23, at 9pm). With only a single value for this combination of carrier and origin-destination pair, the current modeling framework does not produce an estimate for this flight segment.
 
 For both approaches (O-D within carrier and O-D across carrier), we summarize the model performance by MAE and $r^2$ for each airport. A Tableau dashboard will provide more complete exploration of these results.
 
@@ -299,7 +313,7 @@ datatable(d_airport,
           options = list(order = list(list(3, 'asc')),
                         searchCols = list(NULL, list(search = '200 ... 1000'), NULL, NULL, NULL, NULL, NULL),
                          pageLength = 10),
-      caption = "Summary of flight predictability by origin airport, for internal validation 2015-2018. Airports with at least 200 departing flight segments shown by default. Sorted by median MAE, small to large." ) 
+      caption = "Summary of flight predictability by origin airport, for internal validation 2015-2018. Airports with at least 200 departing flights shown by default. Sorted by median MAE, small to large." ) 
 
 ```
 
@@ -349,7 +363,7 @@ datatable(d_airport,
           options = list(order = list(list(3, 'asc')),
                         searchCols = list(NULL, list(search = '100 ... 1000'), NULL, NULL, NULL, NULL, NULL),
                          pageLength = 10),
-      caption = "Summary of flight predictability by origin airport, for external validation on 2019 data. Airports with at least 100 departing flight segments shown by default. Sorted by median MAE, small to large." ) 
+      caption = "Summary of flight predictability by origin airport, for external validation on 2019 data. Airports with at least 100 departing flights shown by default. Sorted by median MAE, small to large." ) 
 
 ```
 
@@ -376,7 +390,7 @@ datatable(d_airport,
           options = list(order = list(list(3, 'asc')),
                         searchCols = list(NULL, list(search = '100 ... 1000'), NULL, NULL, NULL, NULL, NULL),
                          pageLength = 10),
-      caption = "Summary of flight predictability by origin airport, for models across carriers, internal validation 2015-2018. Airports with at least 100 departing flight segments shown by default. Sorted by median MAE, small to large." ) 
+      caption = "Summary of flight predictability by origin airport, for models across carriers, internal validation 2015-2018. Airports with at least 100 departing flights shown by default. Sorted by median MAE, small to large." ) 
 
 ```
 
@@ -400,10 +414,39 @@ datatable(d_airport,
           options = list(order = list(list(3, 'asc')),
                         searchCols = list(NULL, list(search = '100 ... 1000'), NULL, NULL, NULL, NULL, NULL),
                          pageLength = 10),
-      caption = "Summary of flight predictability by origin airport, for models across carriers, external validation on 2019 data. Airports with at least 100 departing flight segments shown by default. Sorted by median MAE, small to large." ) 
+      caption = "Summary of flight predictability by origin airport, for models across carriers, external validation on 2019 data. Airports with at least 100 departing flights shown by default. Sorted by median MAE, small to large." ) 
 
 ```
 
+<!---
+#### Most and least predictable origin airports
+
+```{r airport_summary5}
+
+d_airport = d_across_Internal %>% 
+  filter(N > 2500 & !is.na(MAE)) %>%
+  mutate(pct_MAE = MAE / Obs_Mean) %>% 
+  group_by(Origin) %>% 
+  summarize(mean(MAE),
+            mean(Obs_Mean), 
+            mean(pct_MAE),
+            sum(N))
+
+# d_airport <- d_fl_ensemble_Internal %>%
+#   group_by(Origin) %>%
+#   mutate(MAE = mean(abs(Est_AIR_TIME - AIR_TIME)),
+#          pct_MAE = MAE / AIR_TIME,
+#          N = n()) %>%
+#   filter(!is.na(MAE) & MAE <= 1e6 & N > 1000) %>%
+#   summarize(avg_MAE = mean(MAE),
+#             avg_pct_MAE = mean(pct_MAE),
+#             avg_AIR_TIME = mean(AIR_TIME),
+#             N = sum(N))
+
+datatable(d_airport)
+```
+
+-->
 
 # Additional analyses
 
@@ -411,14 +454,14 @@ Two additional analyses are described here. First, relative congestion at each a
 
 ## O-D Across Carrier, regression with congestion variables
 
-Compare to models without these two variables added, models with these variables were substantially better for many flights. For flight segments which are flown less frequently, adding these variables induced model overfitting in some cases, reducing the predictive power of the models. For points to the left of the dashed 1:1 line, MAE was higher (worse) for models with congestion variables added. For points to the right of the dashed 1:1 line, MAE was lower (better) for models with congestion variables added. 
+Compare to models without these two variables added, models with these variables were substantially better for many flights. For flights which are flown less frequently, adding these variables induced model overfitting in some cases, reducing the predictive power of the models. For points to the left of the dashed 1:1 line, MAE was higher (worse) for models with congestion variables added. For points to the right of the dashed 1:1 line, MAE was lower (better) for models with congestion variables added. 
 
 ```{r cong_in_plot}
 
 d_cong <- d_across_Internal
 d_cong <- left_join(d_cong,
                     d_across_cong_Internal %>% rename(MAE_cong = MAE) %>% select(O_D, MAE_cong)) %>%
-  mutate(high_flights = factor(N > 1000, labels = c('< 1,000', '>= 1,000')))
+  mutate(high_flights = factor(N > 1000, labels = c('< 1,000 flights', '>= 1,000 flights')))
 
 
 ggplot(d_cong, aes(x = MAE, y = MAE_cong)) + 
@@ -428,7 +471,7 @@ ggplot(d_cong, aes(x = MAE, y = MAE_cong)) +
   xlab("MAE base regression models") + ylab("MAE regression + congestion variables") +
   geom_abline(slope = 1, intercept = 0, lty = 3) +
   theme_bw() +
-  ggtitle("MAE with congestion variables added, validation internally to 2015-2018 data. \n Separating O-D pairs with fewer or greater than 1,000 flight segments.")
+  ggtitle("MAE with congestion variables added, validation internally to 2015-2018 data. \n Separating O-D pairs with fewer or greater than 1,000 flights.")
 
 ```
 
@@ -452,7 +495,7 @@ datatable(d_airport,
           options = list(order = list(list(3, 'asc')),
                         searchCols = list(NULL, list(search = '100 ... 1000'), NULL, NULL, NULL, NULL, NULL),
                          pageLength = 10),
-      caption = "Summary of flight predictability by origin airport, for models across carriers including congestion at origin and destination, internal validation 2015-2018. Airports with at least 100 departing flight segments shown by default. Sorted by median MAE, small to large." ) 
+      caption = "Summary of flight predictability by origin airport, for models across carriers including congestion at origin and destination, internal validation 2015-2018. Airports with at least 100 departing flights shown by default. Sorted by median MAE, small to large." ) 
 
 ```
 
@@ -476,7 +519,7 @@ datatable(d_airport,
           options = list(order = list(list(3, 'asc')),
                         searchCols = list(NULL, list(search = '50 ... 1000'), NULL, NULL, NULL, NULL, NULL),
                          pageLength = 10),
-      caption = "Summary of flight predictability by origin airport, for models across carriers including congestion at origin and destination, external validation on 2019 data. Airports with at least 100 departing flight segments shown by default. Sorted by median MAE, small to large." ) 
+      caption = "Summary of flight predictability by origin airport, for models across carriers including congestion at origin and destination, external validation on 2019 data. Airports with at least 100 departing flights shown by default. Sorted by median MAE, small to large." ) 
 
 ```
 
@@ -487,7 +530,7 @@ Similarly to the internal validation, the use of the congestion variables improv
 d_cong <- d_across_2019
 d_cong <- left_join(d_cong,
                     d_across_cong_2019 %>% rename(MAE_cong = MAE) %>% select(O_D, MAE_cong)) %>%
-  mutate(high_flights = factor(N > 1000, labels = c('< 1,000', '>= 1,000')))
+  mutate(high_flights = factor(N > 1000, labels = c('< 1,000 flights', '>= 1,000 flights')))
 
 
 ggplot(d_cong, aes(x = MAE, y = MAE_cong)) + 
@@ -523,16 +566,16 @@ datatable(d_airport,
           options = list(order = list(list(3, 'asc')),
                         searchCols = list(NULL, list(search = '100 ... 1000'), NULL, NULL, NULL, NULL, NULL),
                          pageLength = 10),
-      caption = "Summary of flight predictability by origin airport, for XGBoost models across carriers, internal validation 2015-2018. Airports with at least 100 departing flight segments shown by default. Sorted by median MAE, small to large." ) 
+      caption = "Summary of flight predictability by origin airport, for XGBoost models across carriers, internal validation 2015-2018. Airports with at least 100 departing flights shown by default. Sorted by median MAE, small to large." ) 
 
 ```
 
-The XGBoost models improved model performance for many flight segments with fewer than 1,000 flights flown. Namely, MAE of XGBoost models was lower than that of linear regression models, i.e. to the right of the 1:1 line in the plot below.  However, for O-D pairs of 1,000 or more flights in the training data, XGBoost models typically did not improve model performance.  
+The XGBoost models improved model performance for many flights with fewer than 1,000 flights flown. Namely, MAE of XGBoost models was lower than that of linear regression models, i.e. to the right of the 1:1 line in the plot below.  However, for O-D pairs of 1,000 or more flights in the training data, XGBoost models typically did not improve model performance.  
 
 ```{r xgb_in_plot}
 d_c <- left_join(d_across_Internal,
                  d_across_xgb_Internal %>% rename(MAE_xgb = MAE) %>% select(O_D, MAE_xgb)) %>%
-  mutate(high_flights = factor(N > 1000, labels = c('< 1,000', '>= 1,000')))
+  mutate(high_flights = factor(N > 1000, labels = c('< 1,000 flights', '>= 1,000 flights')))
 
 ggplot(d_c, aes(x = MAE, y = MAE_xgb)) + 
   geom_point(alpha = 1/10, col = 'midnightblue') +
@@ -566,19 +609,19 @@ datatable(d_airport,
           options = list(order = list(list(3, 'asc')),
                         searchCols = list(NULL, list(search = '100 ... 1000'), NULL, NULL, NULL, NULL, NULL),
                          pageLength = 10),
-      caption = "Summary of flight predictability by origin airport, for XGBoost models across carriers, external validation on 2019 data. Airports with at least 100 departing flight segments shown by default. Sorted by median MAE, small to large." ) 
+      caption = "Summary of flight predictability by origin airport, for XGBoost models across carriers, external validation on 2019 data. Airports with at least 100 departing flights shown by default. Sorted by median MAE, small to large." ) 
 
 ```
 
 
-When validating on the 2019 data, the XGBoost models did substantially improve model fit for many flight segments, including both those flown less frequently and those flown more frequently (point to the right of the 1:1 line). The ensemble presented in the top section refers to the best model for each O-D pair across all of these model approaches.
+When validating on the 2019 data, the XGBoost models did substantially improve model fit for many flights, including both those flown less frequently and those flown more frequently (point to the right of the 1:1 line). The ensemble presented in the top section refers to the best model for each O-D pair across all of these model approaches.
 
 
 
 ```{r xgb_ext_plot}
 d_c <- left_join(d_across_2019,
                  d_across_xgb_2019 %>% rename(MAE_xgb = MAE) %>% select(O_D, MAE_xgb)) %>%
-  mutate(high_flights = factor(N > 1000, labels = c('< 1,000', '>= 1,000')))
+  mutate(high_flights = factor(N > 1000, labels = c('< 1,000 flights', '>= 1,000 flights')))
 
 ggplot(d_c, aes(x = MAE, y = MAE_xgb)) + 
   geom_point(alpha = 1/10, col = 'midnightblue') +
