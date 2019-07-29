@@ -144,7 +144,7 @@ padding_bar = ggplot()+
   theme_bw() + 
   theme(legend.title = element_blank(), legend.position = "none", plot.title = element_text(size = 10, face = "bold")) +
   scale_x_date(minor_breaks = seq.Date(from = as.Date("2015-01-01"), to = as.Date("2019-03-01"), by = "3 months"))+
-  ggtitle("Monthly change in difference between scheduled and airborne time since January 2015")+
+  ggtitle("Monthly change in difference between scheduled and actual time since January 2015")+
   xlab("Date")+
   ylab("mins")
 
@@ -159,7 +159,7 @@ monthly_decomp = ggplot()+
   geom_line(data = change, mapping = aes(x=DATE, y = ACTUAL_ELAPSED_TIME, color = "Actual Time"),size = 0.75)+
   geom_vline(xintercept = seq.Date(from = as.Date("2015-01-01"), to = as.Date("2019-03-01"), by = "6 months"),color = "grey20", size = 0.3)+
   scale_color_manual(values = c("#000000","#f7b93d"), name = "")+
-  ggtitle("Monthly change in actual flight time since January 2015, by components of flight fime")+
+  ggtitle("Monthly change in actual flight time since January 2015, by components of flight fime") +
   scale_x_date(minor_breaks = seq.Date(from = as.Date("2015-01-01"), to = as.Date("2019-03-01"), by = "3 months"))+
   ylim(-1.5,11.5)+
   xlab("Date")+
